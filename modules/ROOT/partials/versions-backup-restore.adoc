@@ -1,0 +1,12 @@
+== Software Versions
+
+The following software versions were used to develop and validate the Backup & Restore lab:
+
+[cols="1,1",options="header"]
+|===
+| Component | Version
+| Red Hat OpenShift Container Platform | 4.21.33
+| IBM Fusion | 2.14
+| Fusion Data Foundation | 4.21.12
+| Fusion Backup & Restore | 2.14
+|===

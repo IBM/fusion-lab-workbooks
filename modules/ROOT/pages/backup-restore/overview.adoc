@@ -1,0 +1,52 @@
+= IBM Fusion Backup & Restore: Architecture & Overview
+:navtitle: Overview & Concepts
+
+== Introduction
+
+IBM Fusion Backup & Restore provides enterprise data protection and disaster recovery for stateful, containerized applications running on Red Hat OpenShift. It protects not only persistent data volumes (PVCs) but also all associated Kubernetes metadata — Deployments, StatefulSets, ConfigMaps, Secrets, Routes, and Services.
+
+== About this Lab
+
+This lab is divided into two main sections:
+
+1. **Configure and use Backup & Restore on the Hub cluster**
+   * Define backup locations and policies.
+   * Deploy a sample application and assign backup policies.
+   * Restore an application to a new namespace.
+   * Monitor backup and restore job status.
+   * Create a Fusion Recipe for application-consistent backups (MongoDB/Pacman).
+   * Configure Backup Service Protection.
+
+2. **Hub-and-Spoke: back up on one cluster, restore to another**
+   * Install the Backup & Restore agent on a second TechZone cluster.
+   * Create a shared S3 object store accessible from both clusters.
+   * Back up an application on the Hub and restore it to the Spoke.
+
+[IMPORTANT]
+====
+Two TechZone IBM Fusion environments are required for this lab. Reserve both before you begin — it helps to provision them at the same time. The cluster with the full Backup & Restore service installed is the **Hub**. The second cluster with only the agent installed is the **Spoke**.
+====
+
+include::partial$prereqs-techzone.adoc[]
+
+== Key Capabilities
+
+* **Application-Centric Protection:** Protects PVCs and all associated Kubernetes resources together as a single application unit.
+* **Flexible Storage Targets:** Back up to local in-place snapshots (Ceph/FDF CSI snapshots) or external S3-compatible object storage (NooBaa/MCG, IBM COS, AWS S3).
+* **Multi-Cluster Hub-and-Spoke:** A single Fusion Hub cluster orchestrates backups across distributed Spoke clusters via a lightweight agent.
+* **Application Consistency via Recipes:** Execute pre- and post-backup hooks to quiesce databases before snapshots are taken.
+* **Service Protection:** Back up the Backup & Restore control plane itself to S3 so the service can be recovered after a cluster failure.
+
+== Hub vs. Spoke Architecture
+
+IBM Fusion Backup & Restore operates across two cluster personas:
+
+**Hub Cluster**:: Runs the full Backup & Restore service — controller, inventory, scheduler, policy manager, and UI. Also runs a local agent for protecting applications on the Hub itself.
+
+**Spoke Cluster**:: Runs only the lightweight Backup & Restore agent. The agent receives scheduled tasks from the Hub and executes local snapshotting and data movement. All scheduling, retention, policy handling, and location management remain on the Hub.
+
+The menu:Backup & restore[Topology] page shows the Hub and all connected Spoke clusters. Use it to verify connectivity before starting lab exercises.
+
+include::partial$versions-backup-restore.adoc[]
+
+include::partial$nav-backup-restore-overview.adoc[]

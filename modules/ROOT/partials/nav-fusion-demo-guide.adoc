@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:getting-started/access.adoc[← Accessing the Environment]
+| xref:fusion-foundations/install.adoc[Installing IBM Fusion Operator →]
+|===

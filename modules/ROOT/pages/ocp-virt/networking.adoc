@@ -1,0 +1,177 @@
+= Virtual Machine Networking
+:navtitle: VM Networking
+
+== Introduction
+
+OpenShift Virtualization supports multiple networking models for virtual machines — from simple OpenShift Routes for HTTP traffic, to direct external network access via NMState bridge mappings, to bare-metal LoadBalancer services via MetalLB. This lab covers all three.
+
+include::partial$prereqs-techzone.adoc[]
+
+[NOTE]
+====
+This lab uses the `rhel8-vmlab` VM migrated in xref:ocp-virt/migrate-vm.adoc[VM Migration (MTV)] and the `vmnetwork` project. Ensure those prerequisites are complete.
+====
+
+== Publish an Application with an OpenShift Route
+
+An OpenShift Route exposes an HTTP service running inside the VM to external clients.
+
+1. Navigate to menu:Networking[Services] (project: `vmlab`). Click btn:[Create Service].
+2. In the YAML editor, make the following changes:
+   * `metadata.name`: `rhel8-vmlab-http-svc`
+   * `spec.selector.app`: `rhel8-vmlab-4.21-verified`
+   * `spec.ports[0].targetPort`: `80`
+3. Click btn:[Create].
+4. Click the **Pods** tab to confirm the `virt-launcher` pod for `rhel8-vmlab-4.21-verified` is listed.
+5. Navigate to menu:Networking[Routes]. Click btn:[Create Route].
+6. Fill in:
+   * **Name:** `rhel8-vmlab-http-svc`
+   * **Service:** `rhel8-vmlab-http-svc`
+   * **Target Port:** `80 → 80 (TCP)`
+7. Click btn:[Create].
+
+*Verify from the CLI:*
+
+[source,shell]
+----
+oc get svc,route -n vmlab
+----
+
+Confirm `rhel8-vmlab-http-svc` appears in both the service and route lists with a populated hostname.
+
+[start=8]
+. Copy the **Location** URL from the Route in the console, or use the hostname from the CLI output above. On the Bastion host, verify the Apache server responds:
++
+[source,shell]
+----
+curl http://<route-location>
+----
++
+Expected: a default `index.html` from the Apache HTTP server pre-installed in the OVA.
+
+TIP: You can also verify the default webserver page by clicking the URL displayed in **Networking > Routes**.
+
+////
+== Configure Access to External Networks
+
+This section configures a `localnet` secondary network so VMs can communicate directly on the external network via the `br-ex` OVS bridge.
+
+[IMPORTANT]
+====
+Requires OpenShift 4.16 or later and the Kubernetes NMState Operator initialized in xref:ocp-virt/install.adoc[Install OCP-Virt].
+====
+
+=== Label Worker Nodes
+
+The network configuration policy targets labeled nodes only.
+
+*From the OpenShift Web Console:*
+
+1. Navigate to menu:Compute[Nodes].
+2. For each of `itz-++*++-worker-1`, `itz-++*++-worker-2`, and `itz-++*++-worker-3`: click the node name → **Details** tab → btn:[Edit] Labels, add:
++
+----
+techzone.ibm.com/vmnetwork=true
+----
+3. Click btn:[Save].
+
+*From the CLI:*
+
+[source,shell]
+----
+for node in $(oc get nodes -l node-role.kubernetes.io/worker -o name); do
+  oc label $node techzone.ibm.com/vmnetwork=true
+done
+
+# Verify labels were applied
+oc get nodes -l techzone.ibm.com/vmnetwork=true
+----
+
+All three worker nodes should appear in the output before proceeding.
+
+=== Apply the NodeNetworkConfigurationPolicy
+
+1. Click the Quick create icon (`+`) in the masthead → **Import YAML**.
+2. Paste the following YAML and click btn:[Create]:
++
+[source,yaml]
+----
+include::example$br-ex-nncp.yaml[]
+----
+3. Navigate to menu:Networking[NodeNetworkConfigurationPolicy] and wait for all 3 worker nodes to show **Completed**.
+
+=== Create a NetworkAttachmentDefinition
+
+1. Navigate to menu:Networking[NetworkAttachmentDefinition] (project: `vmnetwork`). Click btn:[Create Network Attachment Definition].
+2. Enter `vm-external-network` in the **Name** field.
+3. Select **OVN-Kubernetes secondary localnet network** from the **Network type** drop-down.
+4. Enter `br-ex-network` in the **Bridge mapping** field. Click btn:[Create].
+
+=== Add an External NIC to a VM
+
+1. Deploy a new RHEL 9 VM in the `vmnetwork` project from the catalog template. Wait for it to boot.
+2. On the VM details page, click the **Configuration** tab → **Network** → btn:[Add network interface].
+3. Enter `external-nic` as the **Name**, select `vmnetwork/vm-external-network` from the **Network** drop-down. Click btn:[Save].
+4. Click btn:[Restart VM] to apply the new NIC.
+5. On the VM **Overview** tab, scroll to the **Network** card. Verify that `external-nic` receives a `10.10.10.x` IP address after boot.
+
+== Expose a VM Service over MetalLB LoadBalancer
+
+MetalLB provides bare-metal LoadBalancer IP addresses for services of type `LoadBalancer`. This example exposes a MongoDB instance inside a VM to external clients using Layer 2 mode.
+
+=== Install and Configure MetalLB
+
+include::partial$install-metallb.adoc[]
+
+=== Deploy the MongoDB VM Template
+
+1. Switch to the `vmnetwork` project.
+2. Click the Quick create icon (`+`) → **Import YAML**. Paste the following YAML and click btn:[Create]:
++
+[source,yaml]
+----
+include::example$mongodb-vm-template.yaml[]
+----
+3. Navigate to menu:Virtualization[Catalog > Template catalog > User templates] and click the **MongoDB Virtual Machine Template** tile → btn:[Quick create VirtualMachine].
++
+[NOTE]
+====
+Wait up to 5 minutes for the cloud-init script to finish installing and configuring MongoDB.
+====
+
+=== Create the LoadBalancer Service
+
+1. Click the Quick create icon (`+`) → **Import YAML**. Paste the following YAML and click btn:[Create]:
++
+[source,yaml]
+----
+include::example$mongodb-vm-lb.yaml[]
+----
+2. Navigate to menu:Networking[Services] (project: `vmnetwork`). Note the **External IP** assigned from the `10.10.10.205–250` pool.
+
+*Verify the External IP from the CLI:*
+
+[source,shell]
+----
+oc get svc -n vmnetwork
+----
+
+The `EXTERNAL-IP` column should show an address from the MetalLB pool before proceeding.
+
+[start=3]
+. On the Bastion host, verify the MongoDB LoadBalancer is reachable:
++
+[source,shell]
+----
+curl http://<LB IP address>:27017
+----
++
+Expected output:
++
+----
+It looks like you are trying to access MongoDB over HTTP on the native driver port.
+----
+
+////
+
+include::partial$nav-ocp-virt-networking.adoc[]

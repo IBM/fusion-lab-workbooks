@@ -1,0 +1,62 @@
+= Benchmarking IBM Fusion Access for SAN Storage
+:navtitle: Benchmarking
+
+include::partial$fusion-access-san-attrs.adoc[]
+
+== Introduction
+
+This section demonstrates how to benchmark your IBM Fusion Access for SAN storage class using KubeStr.
+
+For comprehensive storage benchmarking on Red Hat OpenShift with FIO, refer to:
+"Benchmarking Your Storage on Red Hat OpenShift with FIO" — https://community.ibm.com/community/user/viewdocument/benchmarking-your-storage-on-redha?CommunityKey=e596ba82-cd57-4fae-8042-163e59279ff3&tab=librarydocuments[IBM Community Guide^]
+
+== Tool: KubeStr
+
+KubeStr is a Kubernetes storage benchmarking tool that can identify CSI drivers and run performance tests.
+
+Download: https://github.com/kastenhq/kubestr/releases/latest[KubeStr Releases^]
+
+== Step 1: Initial KubeStr Run — Identify CSI Drivers
+
+Run KubeStr to discover all CSI drivers and their associated storage classes:
+
+[source,shell]
+----
+./kubestr fio
+----
+
+Expected output: KubeStr identifies the `{storage-class-name}` storage class and correctly identifies the CSI provider as **IBM Storage Scale**.
+
+== Step 2: Run Benchmark Against Fusion Access for SAN
+
+Run KubeStr specifically against the `{storage-class-name}` storage class:
+
+[source,shell]
+----
+./kubestr fio --storage-class {storage-class-name}
+----
+
+== Important Notes
+
+[NOTE]
+====
+The lab environment is **not representative of a real-world deployment**:
+* Single-node IBM Storage Scale cluster
+* Nested virtualization
+* Single 10GbE network interface
+* iSCSI over single path (no multipath)
+
+Benchmark results in this environment are for demonstration purposes only and do not reflect production performance.
+====
+
+== Production Benchmarking Considerations
+
+For meaningful production benchmarks:
+
+* **Bare-metal worker nodes** with dedicated SAN connectivity
+* **Multiple Storage Scale nodes** for HA and performance
+* **Multipath configuration** with multiple target portals
+* **Appropriate workload profiles** (FIO job files matching your application I/O patterns)
+* **Sufficient test duration** to reach steady state
+
+include::partial$nav-fusion-access-san-benchmark.adoc[]

@@ -1,0 +1,17 @@
+== Download the `virtctl` CLI
+
+The `virtctl` command-line tool extends `oc` with VM-specific operations such as console access, start/stop, and live migration. Download it directly from your cluster's web console to ensure version compatibility with your environment.
+
+1. In the OpenShift Web Console, click the Help icon (kbd:[?]) in the top-right masthead and select **Command Line Tools**.
+2. Scroll to the **virtctl – KubeVirt command line interface** section.
+3. Right-click the **Download virtctl for Linux for x86_64** link and select **Copy Link Address**.
+4. On the Bastion host, download and install `virtctl` using the copied URL:
++
+[source,shell]
+----
+curl -L -O <paste-download-url-here>
+tar xzvf virtctl.tar.gz
+chmod u+x virtctl
+sudo mv virtctl /usr/local/bin/
+virtctl version
+----

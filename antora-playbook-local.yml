@@ -1,0 +1,23 @@
+site:
+  title: IBM Fusion Lab Guides
+  start_page: fusion-lab-guides::index.adoc
+asciidoc:
+  attributes:
+    experimental: ''
+content:
+  sources:
+    - url: .
+      branches: HEAD
+      worktrees: true
+ui:
+  bundle:
+    url: https://gitlab.com/antora/antora-ui-default/-/jobs/artifacts/HEAD/raw/build/ui-bundle.zip?job=bundle-stable
+    snapshot: true
+  supplemental_files: ./supplemental-ui
+output:
+  dir: ./.build/site
+
+# TODO: When publishing via CI (GitHub Actions), PDFs in pdf/ are not auto-copied by Antora.
+# Add a post-build step to copy them to the site output:
+#   mkdir -p build/site/pdf && cp pdf/*.pdf build/site/pdf/
+# Then JS download links (/pdf/ibm-fusion-*.pdf) will work.

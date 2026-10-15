@@ -1,0 +1,25 @@
+////
+install-metallb.adoc
+Default IP range is 10.10.10.205-10.10.10.250.
+Addresses up to .204 are reserved for infrastructure (bastion .201, scale .202,
+plus headroom for future servers). The .205-.250 range is safe for both the
+HCP and OCP-Virt networking labs.
+To override, set the attribute before including this partial:
+  :metallb-ip-range: 10.10.10.205-10.10.10.210
+  include::partial$install-metallb.adoc[]
+////
+
+ifndef::metallb-ip-range[:metallb-ip-range: 10.10.10.205-10.10.10.250]
+
+1. Navigate to menu:Ecosystem[Software Catalog], search for `MetalLB`, and select the **MetalLB Operator** tile.
+2. Click btn:[Install], keep all defaults, and click btn:[Install].
+3. Once installed, navigate to menu:Ecosystem[Installed Operators > MetalLB Operator] (project: `metallb-system`).
+4. On the **MetalLB** tab, click btn:[Create instance]. Accept all defaults and click btn:[Create].
+5. Click the **IPAddressPool** tab → btn:[Create IPAddressPool]:
+   * **Name:** `techzone-ipaddresspool`
+   * **Addresses:** `{metallb-ip-range}`
+   * Remove any extra address fields, then click btn:[Create].
+6. Click the **L2Advertisement** tab → btn:[Create L2Advertisement]:
+   * **Name:** `l2-adv-techzone`
+   * **ipAddressPools:** `techzone-ipaddresspool`
+   * Click btn:[Create].

@@ -1,0 +1,176 @@
+= VM Migration with Migration Toolkit for Virtualization
+:navtitle: VM Migration (MTV)
+
+== Introduction
+
+The **Migration Toolkit for Virtualization (MTV)** migrates virtual machines at scale into Red Hat OpenShift Virtualization. In this lab you will simulate migrating a VM from an external source by using an Open Virtual Appliance (OVA) image served over NFS from the Bastion host.
+
+include::partial$prereqs-techzone.adoc[]
+
+////
+AUTHOR NOTE: Channel 2.7 has a known OVA migration failure in the TechZone environment.
+Review newer MTV versions to determine if the issue is resolved before updating this lab.
+If a newer version is confirmed working, update the channel recommendation in install.adoc and remove both comments.
+
+This note has become obsolete with 4.21 environment
+////
+
+[NOTE]
+====
+This lab requires the MTV ForkliftController and the `vmlab` project to be set up. See xref:ocp-virt/install.adoc[Install OCP-Virt] before proceeding.
+====
+
+== Enable NFS on the Bastion Host and Download the OVA
+
+The Bastion host will act as the NFS server that hosts the OVA image for migration.
+
+1. SSH to the Bastion host (see xref:getting-started/access.adoc[Accessing the Environment]).
+2. Install the NFS utilities:
++
+[source,shell]
+----
+sudo dnf install nfs-utils.x86_64 -y
+----
+3. Create the images directory and set permissions so the MTV migration pod can read it:
++
+[source,shell]
+----
+sudo mkdir /images
+sudo chmod 2755 /images
+sudo chgrp users /images
+----
+4. Export the `/images` directory via NFS:
++
+[source,shell]
+----
+echo "/images   *(rw,no_root_squash,async)" | sudo tee -a /etc/exports
+----
+5. Enable the NFS service:
++
+[source,shell]
+----
+sudo systemctl enable --now nfs-server.service
+sudo exportfs -a
+----
++
+TIP: In a real production environment you have to verify the NFS ports are opened through the firewall for `nfs`, `mountd` and `rpc-bind`. See xref:Firewall Related commands[List of commands].
++
+6. Verify the export:
++
+[source,shell]
+----
+showmount -e
+----
+7. Download the OVA image pre-built for this lab:
++
+[source,shell]
+----
+sudo curl -L -o /images/rhel8-vmlab.ova \
+  https://ibm.box.com/shared/static/s4ana7xh5a48niz5uf1e66myawbmkqic.ova
+----
+8. Set read permissions on the OVA so the migration pod can access it:
++
+[source,shell]
+----
+sudo chmod 644 /images/rhel8-vmlab.ova
+----
+
+== Add the Host Provider
+
+A **Host Provider** represents the destination OpenShift Virtualization cluster.
+
+[NOTE]
+====
+An existing host provider is already present in the `openshift-mtv` namespace. This step creates one scoped to the `vmlab` project for the migration plan.
+====
+
+1. Navigate to menu:Migration[Providers for virtualization].
+2. Verify the project is set to `vmlab`. Click btn:[Create Provider].
+3. Click the **OpenShift Virtualization** tile.
+4. Enter `vmlab-host` in the **Provider resource name** field.
+5. Select btn:[Skip certificate validation].
+6. Scroll down and click btn:[Create Provider].
+7. Wait for the status to transition from **Staging** to **Ready**.
+
+== Add the OVA Provider
+
+An **OVA Provider** points to the NFS share containing the OVA image.
+
+1. Navigate to menu:Migration[Providers for virtualization].
+2. Verify the project is `vmlab`. Click btn:[Create Provider].
+3. Click the **Open Virtual Appliance** tile.
+4. Fill in the following fields:
++
+[cols="1,2",options="header"]
+|===
+| Field | Value
+| **Provider resource name** | `bastion-nfs`
+| **URL** | `10.10.10.201:/images`
+|===
++
+[NOTE]
+====
+`10.10.10.201` is the Bastion host's fixed internal NFS interface in all TechZone OCP-V environments. This address is the same for every reservation and does not need to be changed.
+====
+5. Click btn:[Create Provider] once both fields show green checkmarks.
+6. Wait for the provider status to show **Ready** (approximately 2 minutes).
+7. Click the **Virtual Machines** tab — the `rhel8-vmlab-4.21-verified` OVA should appear in the list.
+
+*Verify both providers are Ready from the CLI:*
+
+[source,shell]
+----
+oc get providers -n vmlab
+----
+
+Both `vmlab-host` and `bastion-nfs` should show `Ready` in the `STATUS` column before proceeding.
+
+== Create and Execute the Migration Plan
+
+1. Navigate to menu:Migration[Plans for virtualization].
+2. Verify the project is `vmlab`. Click btn:[Create Plan].
+3. Enter `rhel8-vmlab-plan` in the **Plan name** field. Feel free to add your own description in the appropriate **Description** field.
+4. Select `bastion-nfs` as the **Source provider**.
+5. Select `vmlab-host` as the **Target provider**.
+6. Select `vmlab` as the **Target project** and click btn:[Next].
+7. Check the `rhel8-vmlab-4.21-verified` VM checkbox, and click btn:[Next].
+8. Select **Use new network map** and keep the selected defaults.
+9. Enter `networkmap` in the **Network map name** field then click btn:[Next].
+10. Select **Use new storage map** and make sure the **Target storage** is set to `ocs-storagecluster-ceph-rbd-virtualization`. 
+11. Enter `storagemap` in the **Storage map name** field then click btn:[Next].
+12. Skip the next dialog (`Other settings (optional)`) by clicking btn:[Next].
+13. Skip the next dialog (`Automation (optional)`) by clicking btn:[Next].
+14. Skip the next dialog (`Automation (optional)`) by clicking btn:[Next].
+15. Click btn:[Create plan] to create the migration plan.
+16. On the plan details page, click btn:[Start], then confirm with btn:[Start] in the popup.
+17. Click the **Virtual Machines** tab to track the migration pipeline. The migration completes in approximately 5 minutes.
+
+TIP: You can also trace the migration execution by monitoring the pod `rhel8-vmlab-plan-[truncated]` and its log within the `vmlab` namespace.
+
+*Verify the migration plan status from the CLI:*
+
+[source,shell]
+----
+oc get plan rhel8-vmlab-plan -n vmlab -w
+----
+
+The `STATUS` column progresses through `Running` to `Succeeded`. You can also watch VM-level progress:
+
+[source,shell]
+----
+oc get vms -n vmlab -w
+----
+
+== Start and Verify the Migrated VM
+
+1. Navigate to menu:Virtualization[VirtualMachines] (project: `vmlab`).
+2. Click on `rhel8-vmlab-4.21-verified`. The VM is in a stopped state after migration.
+3. Click **Actions → Start**.
+4. Once the VM is **Running**, the **Operating system** and **Hostname** fields will populate — this confirms that the `qemu-guest-agent` from the OVA is working.
+5. Click **Open web console** and log in with:
+   * **Username:** `labuser`
+   * **Password:** `Passw0rd`
+
+include::partial$nfs-firewall-update.adoc[]
+
+include::partial$nav-ocp-virt-migrate-vm.adoc[]

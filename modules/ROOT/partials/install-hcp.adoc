@@ -1,0 +1,17 @@
+== Download the `hcp` CLI
+
+The `hcp` command-line tool is used to create and manage Hosted Control Plane clusters. Download it directly from your cluster's web console to ensure version compatibility with your environment.
+
+1. In the OpenShift Web Console, click the Help icon (kbd:[?]) in the top-right masthead and select **Command Line Tools**.
+2. Scroll to the **hcp – Hosted Control Plane Command Line Interface (CLI)** section.
+3. Right-click the **Download hcp for Linux for x86_64** link and select **Copy Link Address**.
+4. On the Bastion host, download and install `hcp` using the copied URL:
++
+[source,shell]
+----
+curl -L -O <paste-download-url-here>
+tar xzvf hcp.tar.gz
+chmod u+x hcp
+sudo mv hcp /usr/local/bin/
+hcp version
+----

@@ -1,0 +1,61 @@
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <a class="navbar-item" href="{{site.url}}">{{site.title}}</a>
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+      <div class="navbar-end">
+        {{!-- Home links to the welcome/index page of this component
+        <a class="navbar-item" href="{{page.component.url}}">Home</a>
+         --}}
+
+        {{!-- Link to official IBM Fusion documentation (opens in new tab per author guide) --}}
+        <a class="navbar-item" href="https://www.ibm.com/docs/en/fusion-software" target="_blank" rel="noopener">IBM Fusion Docs</a>
+
+        {{!-- Dynamic Download button - JS will update href based on current page 
+        <div class="navbar-item">
+          <span class="control">
+            <a id="download-pdf-btn" class="button is-primary" href="{{site.url}}/pdf/ibm-fusion-demo-guide.pdf">Download PDF</a>
+          </span>
+        </div>
+        --}}
+      </div>
+    </div>
+  </nav>
+</header>
+
+<script>
+  (function () {
+    var pdfMap = {
+      'backup-restore': 'ibm-fusion-backup-restore-guide.pdf',
+      'ocp-virt': 'ibm-fusion-ocp-virt-guide.pdf',
+      'hcp': 'ibm-fusion-hcp-guide.pdf',
+      'rdr': 'ibm-fusion-rdr-guide.pdf',
+      'fusion-foundations': 'ibm-fusion-demo-guide.pdf',
+      'fusion-access': 'ibm-fusion-demo-guide.pdf',
+      'getting-started': 'ibm-fusion-demo-guide.pdf'
+    };
+
+    var path = window.location.pathname;
+    var pdf = 'ibm-fusion-demo-guide.pdf'; // default
+
+    for (var section in pdfMap) {
+      if (path.includes('/' + section + '/')) {
+        pdf = pdfMap[section];
+        break;
+      }
+    }
+
+    var btn = document.getElementById('download-pdf-btn');
+    if (btn) {
+      btn.href = '/pdf/' + pdf;
+      var label = pdf.replace('ibm-fusion-', '').replace('-guide.pdf', '').replace('.pdf', '');
+      btn.textContent = 'Download ' + label + ' PDF';
+    }
+  })();
+</script>

@@ -1,0 +1,232 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+labels:
+  app: mongodb
+metadata:
+  labels:
+    app.kubernetes.io/part-of: hyperconverged-cluster
+    flavor.template.kubevirt.io/small: 'true'
+    template.kubevirt.io/version: v0.29.2
+    app.kubernetes.io/version: 4.16.2
+    template.kubevirt.io/type: vm
+    vm.kubevirt.io/template: centos-stream9-server-small
+    app.kubernetes.io/component: templating
+    app.kubernetes.io/managed-by: ssp-operator
+    app.kubernetes.io/name: custom-templates
+    vm.kubevirt.io/template.namespace: openshift
+    workload.template.kubevirt.io/server: 'true'
+    os.template.kubevirt.io/centos-stream9: 'true'
+  annotations:
+    name.os.template.kubevirt.io/centos-stream9: CentOS Stream 9 or higher
+    openshift.io/display-name: MongoDB Virtual Machine Template
+    openshift.io/long-description: >-
+      This template provides a standalone MongoDB Virtual Machine with a database
+      created. The database is stored on persistent storage. The database name,
+      username, and password are chosen via parameters when provisioning this service.
+    openshift.io/provider-display-name: IBM Technology Zone
+    iconClass: icon-mongodb
+    tags: 'database,mongodb,hidden,kubevirt,virtualmachine,linux,centosstream'
+    template.kubevirt.io/provider: IBM Technology Zone
+    template.kubevirt.io/provider-url: 'https://www.centos.org'
+    template.kubevirt.io/version: v1alpha1
+    openshift.io/documentation-url: 'https://github.com/kubevirt/common-templates'
+    defaults.template.kubevirt.io/disk: rootdisk
+    template.openshift.io/bindable: 'false'
+    openshift.kubevirt.io/pronounceable-suffix-for-name-expression: 'true'
+    template.kubevirt.io/provider-support-level: Community
+    description: >-
+      Template for CentOS Stream 9 VM or newer. A PVC with the CentOS Stream disk
+      image must be available.
+    openshift.io/support-url: 'https://github.com/kubevirt/common-templates/issues'
+  name: mongodb-vm-template
+objects:
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+        template.openshift.io/expose-uri: 'mongodb://{.spec.clusterIP}:{.spec.ports[?(.name=="mongo")].port}'
+      labels:
+        app: ${APPLICATION_NAME}
+        component: "${NAME}"
+        role: database
+      name: '${NAME}'
+    spec:
+      ports:
+        - name: mongo
+          nodePort: 0
+          port: 27017
+          protocol: TCP
+          targetPort: 27017
+      selector:
+        flavor.template.kubevirt.io/small: 'true'
+        kubevirt.io/domain: ${NAME}
+        kubevirt.io/size: small
+        os.template.kubevirt.io/centos-stream9: 'true'
+        vm.kubevirt.io/name: ${NAME}
+        workload.template.kubevirt.io/server: 'true'
+        app: database
+      sessionAffinity: None
+      type: ClusterIP
+  - apiVersion: kubevirt.io/v1
+    kind: VirtualMachine
+    metadata:
+      annotations:
+        name.os.template.kubevirt.io/centos-stream9: CentOS 9 or higher
+        openshift.io/display-name: MongoDB Virtual Machine
+      labels:
+        app: ${APPLICATION_NAME}
+        app.kubernetes.io/part-of: ${APPLICATION_NAME}
+        flavor.template.kubevirt.io/small: 'true'
+        os.template.kubevirt.io/centos-stream9: 'true'
+        kubevirt.io/domain: ${NAME}
+        kubevirt.io/size: small
+        workload.template.kubevirt.io/server: 'true'
+        vm.kubevirt.io/name: ${NAME}
+      name: ${NAME}
+    spec:
+      dataVolumeTemplates:
+      - apiVersion: cdi.kubevirt.io/v1beta1
+        kind: DataVolume
+        metadata:
+          name: ${NAME}
+        spec:
+          sourceRef:
+            kind: DataSource
+            name: '${DATA_SOURCE_NAME}'
+            namespace: '${DATA_SOURCE_NAMESPACE}'
+          storage:
+            resources:
+              requests:
+                storage: 30Gi
+      running: true
+      template:
+        metadata:
+          annotations:
+            vm.kubevirt.io/flavor: small
+            vm.kubevirt.io/os: centos-stream9
+            vm.kubevirt.io/workload: server
+          labels:
+            app: database
+            flavor.template.kubevirt.io/small: 'true'
+            kubevirt.io/domain: ${NAME}
+            kubevirt.io/size: small
+            os.template.kubevirt.io/centos-stream9: 'true'
+            vm.kubevirt.io/name: ${NAME}
+            workload.template.kubevirt.io/server: 'true'
+        spec:
+          domain:
+            cpu:
+              cores: 1
+              sockets: 1
+              threads: 1
+            devices:
+              disks:
+              - bootOrder: 1
+                disk:
+                  bus: virtio
+                name: rootdisk
+              - disk:
+                  bus: virtio
+                name: cloudinitdisk
+              interfaces:
+              - masquerade: {}
+                model: virtio
+                name: nic-0
+              networkInterfaceMultiqueue: true
+              rng: {}
+            resources:
+              requests:
+                memory: 2Gi
+          evictionStrategy: LiveMigrate
+          hostname: ${NAME}
+          networks:
+          - name: nic-0
+            pod: {}
+          terminationGracePeriodSeconds: 180
+          volumes:
+          - dataVolume:
+              name: ${NAME}
+            name: rootdisk
+          - cloudInitNoCloud:
+              userData: |-
+                #cloud-config
+                user: ${VM_USER_NAME}
+                password: ${VM_PASSWORD}
+                chpasswd: { expire: False }
+                yum_repos:
+                  mongodb-org-7.0:
+                    baseurl: https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/7.0/x86_64/
+                    enabled: true
+                    gpgcheck: true
+                    gpgkey: https://www.mongodb.org/static/pgp/server-7.0.asc
+                    name: MongoDB Repository
+                packages:
+                  - bash-completion
+                  - mongodb-org
+                runcmd:
+                  - systemctl daemon-reload
+                  - systemctl enable mongod.service
+                  - systemctl start mongod.service
+                  - >
+                    while true; do
+                      mongosh --quiet --eval "quit()" 1>/dev/zero 2>&1
+                      rc=$?
+                      if [ $rc -ne 0 ]; then sleep 2; else break; fi
+                    done
+                  - echo "Creating root mongodb user"
+                  - >
+                    mongosh admin --host localhost --eval "db.createUser({user: 'root', pwd: '${MONGODB_ADMIN_PASSWORD}', roles: [{role: 'root', db: 'admin'}]});"
+                  - echo "Creating mongodb user"
+                  - >
+                    mongosh admin --host localhost --eval "db.getSiblingDB('mongodb').createUser({user: '${MONGODB_USER}', pwd: '${MONGODB_PASSWORD}', roles: [{role: 'dbOwner', db: '${MONGODB_DATABASE}'}]});"
+                  - sed -i -e 's/bindIp: 127.0.0.1/bindIp: 0.0.0.0/g' /etc/mongod.conf
+                  - sed -i -e 's/^#security:/security:/g' /etc/mongod.conf
+                  - sed -i -e '/^security:/a \  authorization: enabled' /etc/mongod.conf
+                  - systemctl restart mongod.service
+            name: cloudinitdisk
+parameters:
+- description: The name for the mongoDB application and virtual machine.
+  displayName: MongoDB Application Name
+  name: MONGODB_APPLICATION_NAME
+  value: mongodb
+  required: true
+- description: Virtual Machine Username
+  displayName: Virtual Machine Username
+  name: VM_USER_NAME
+  required: true
+  value: centos
+- description: Randomized password for the cloud-init user
+  name: VM_PASSWORD
+  generate: expression
+  from: '[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}'
+- description: The name for the main application
+  displayName: Main Application Name
+  name: APPLICATION_NAME
+  value: workshop
+  required: true
+- description: Database name
+  displayName: Database name
+  name: MONGODB_DATABASE
+  value: mongodb
+  required: true
+- description: Database username
+  displayName: Database username
+  name: MONGODB_USER
+  value: mongodb
+  required: true
+- description: Database user password
+  displayName: Database user password
+  name: MONGODB_PASSWORD
+  value: mongodb
+  required: true
+- description: Database admin password
+  displayName: Database admin password
+  name: MONGODB_ADMIN_PASSWORD
+  value: mongodb
+  required: true
+- name: DATA_SOURCE_NAME
+  description: Name of the DataSource to clone
+  value: centos-stream9
+- name: DATA_SOURCE_NAMESPACE
+  description: Namespace of the DataSource
+  value: openshift-virtualization-os-images

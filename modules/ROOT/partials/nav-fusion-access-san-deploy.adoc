@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:fusion-access-san/iscsi-setup.adoc[← iSCSI Setup with LIO]
+| xref:fusion-access-san/vm-deploy.adoc[Deploy VM →]
+|===

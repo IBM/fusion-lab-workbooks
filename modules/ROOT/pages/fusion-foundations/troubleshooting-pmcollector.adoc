@@ -1,0 +1,45 @@
+= Troubleshooting: pmcollector Pod Not Running
+:navtitle: Troubleshooting pmcollector
+
+== Overview
+
+Due to the limited number of resources in this lab environment, sometimes the Storage Scale `pmcollector` pod will not be in a `Running` state.
+The following steps allow you to free up enough resources on a particular node so that the pod can be scheduled and come online.
+
+== Procedure
+
+. In the OpenShift Web Console, navigate to menu:Workloads[Pods] and select the **ibm-spectrum-scale** project from the project selector.
+Check whether the `ibm-scale-pmcollector-0` or `ibm-scale-pmcollector-1` pod is showing a status of **Pending**.
+
+. In the example shown, there are nodes with insufficient memory.
+
+. To determine which node Storage Scale created a `localVolume` PersistentVolume on, navigate to menu:Storage[PersistentVolumeClaims].
++
+In this example, `worker-3-pmcollector` is bound to PVC `datadir-ibm-spectrum-scale-pmcollector-0`, which is attached to pod `ibm-spectrum-scale-pmcollector-0`.
+The PersistentVolume `storage-2-pmcollector` has been bound to a PVC, which means node `storage-2` does not have enough resources for the pod to come online.
+
+. Navigate to menu:Compute[Nodes] and click the node that was determined to have the unattached PersistentVolume (in this example, `storage-2`).
+
+. On the **Node** details screen, an error is displayed indicating the node's memory is overcommitted — this is why `pmcollector-1` is not coming online.
+Click the **Pods** tab to see all pods currently scheduled on this node.
+
+. All pods that are **Scheduled** and **Running** on this node are displayed.
+Use the **Owner** column to determine which pods can be deleted to make room for the `ibm-scale-pmcollector-1` pod.
++
+[NOTE]
+====
+The 2-letter prefix in the **Owner** column indicates the type of Kubernetes object managing the pod:
+
+* **DS** (DaemonSet) — The pod runs on every node by design. **Do not delete** DaemonSet-managed pods.
+* **RS** (ReplicaSet) — The pod is a safe candidate for deletion. Kubernetes will reschedule it on another node with sufficient resources.
+
+For example, a pod prefixed **DS** such as `iptables-alerter` should be left alone.
+A pod prefixed **RS** such as `isf-application-operator-controller-manager-65cbf8bf55-7tnzr` is a safe candidate for deletion.
+====
+
+. Click the **Pod context menu** (⋮ — three stacked dots) next to an **RS**-owned pod and select **Delete Pod**.
+Kubernetes will reschedule the deleted pod on another node in the cluster that has more resources.
+
+. After deleting the pod, navigate back to menu:Workloads[Pods] in the **ibm-spectrum-scale** project and verify that the `ibm-scale-pmcollector-0` or `ibm-scale-pmcollector-1` pod status changes to **Running**.
+
+. As a final check, navigate to menu:Storage[PersistentVolumeClaims] and confirm the `datadir-ibm-spectrum-scale-pmcollector-*` PVCs show a status of **Bound**.

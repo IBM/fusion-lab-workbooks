@@ -1,0 +1,125 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: mongo-storage
+spec:
+  storageClassName: ocs-storagecluster-ceph-rbd
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    name: mongodb
+    app: mongodb
+  name: mongodb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: mongodb
+  template:
+    metadata:
+      labels:
+        name: mongodb
+        app: mongodb
+    spec:
+      containers:
+      - image: docker.io/library/mongo:5.0 # was: bitnami/mongodb:5.0.24-debian-11-r20
+        name: mongodb
+        ports:
+        - name: mongodb
+          containerPort: 27017
+        volumeMounts:
+          - name: mongo-db
+            mountPath: /data/db # was: /bitnami/mongodb/data/db
+      volumes:
+        - name: mongo-db
+          persistentVolumeClaim:
+            claimName: mongo-storage
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: mongodb
+  name: mongo
+spec:
+  type: ClusterIP
+  ports:
+    - port: 27017
+      targetPort: 27017
+  selector:
+    name: mongodb
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    name: pacman
+  name: pacman
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: pacman
+  template:
+    metadata:
+      labels:
+        name: pacman
+    spec:
+      containers:
+      - image: quay.io/jpacker/nodejs-pacman-app:latest
+        name: pacman
+        ports:
+        - containerPort: 8080
+          name: http-server
+      initContainers:
+      - name: db-check
+        image: busybox:latest
+        command: ['sh', '-c', 'echo -e "Checking for the availability of MongoDB Server deployment"; while ! nc -z mongo 27017; do sleep 1; printf "-"; done; echo -e "  >> MongoDB Server has started";']
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: pacman
+  labels:
+    name: pacman
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    name: pacman
+
+---
+
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: pacman
+  labels:
+    app.kubernetes.io/name: pacman
+spec:
+  path: "/"
+  to:
+    kind: Service
+    name: pacman
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

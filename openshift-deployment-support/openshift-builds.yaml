@@ -1,0 +1,92 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: techzone-lab
+  labels:
+    name: techzone-lab
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: ubi9-git
+  namespace: techzone-lab
+  labels:
+    app: antora-viewer
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: ubi9-git
+  namespace: techzone-lab
+  labels:
+    app: antora-viewer
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: ubi9-git:latest
+  source:
+    type: Dockerfile
+    dockerfile: |
+      FROM registry.access.redhat.com/ubi9/ubi:latest
+      
+      # Install git-core as root during build
+      RUN dnf install -y git-core && \
+          dnf clean all && \
+          rm -rf /var/cache/dnf
+      
+      # Set a non-root user for runtime (OpenShift will override this with its own UID)
+      USER 1001
+  strategy:
+    type: Docker
+    dockerStrategy:
+      from:
+        kind: DockerImage
+        name: registry.access.redhat.com/ubi9/ubi:latest
+  triggers:
+  - type: ConfigChange
+  - type: ImageChange
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: antora-viewer
+  namespace: techzone-lab
+  labels:
+    app: antora-viewer
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: antora-viewer
+  namespace: techzone-lab
+  labels:
+    app: antora-viewer
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: antora-viewer:latest
+  source:
+    type: Git
+    git:
+      uri: https://github.com/juliaaano/antora-viewer.git
+      ref: main
+    contextDir: container
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Containerfile
+  triggers:
+  - type: ConfigChange
+  - type: ImageChange
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: github-token
+  namespace: techzone-lab
+type: Opaque
+stringData:
+  token: "REPLACE_WITH_YOUR_GITHUB_PAT"

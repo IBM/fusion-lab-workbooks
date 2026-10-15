@@ -1,0 +1,305 @@
+= Accessing Your TechZone Lab Environment
+:navtitle: Accessing the Environment
+
+== Introduction
+
+Once your TechZone reservation is in the **Ready** state, you have three ways to interact with your OpenShift cluster. Most learners use a combination — the Web Console for UI-driven tasks and either the Bastion or a local `oc` install for CLI work.
+
+[NOTE]
+====
+If you have not yet provisioned a TechZone environment, complete the xref:getting-started/tz-quick-start.adoc[TechZone Quick Start] first.
+====
+
+== Gathering Your Credentials
+
+All endpoints and credentials are found in the **Outputs** section of your reservation page. Navigate to https://techzone.ibm.com/my/requests[My requests^], open your reservation, and expand the environment row to reveal the Outputs panel shown below.
+
+image::tz-fusion-reservation.png[TechZone reservation outputs panel, link=self]
+
+Before proceeding, collect the following into a working folder on your local machine:
+
+* btn:[Download] the **kubeconfig** file — saves as `conf_kubeconfig_download.conf`
+* btn:[Download] the **private SSH key** — saves as `vm_ssh_key.vm` (check your Downloads folder)
+* Note or copy the following values from the hidden fields (click the eye icon to reveal):
+** **Cluster Admin Password** (username is `kubeadmin`)
+** **Bastion Password** (username is `itzuser` — used for `sudo` on the Bastion, not SSH login)
+* Note the **Bastion SSH connection** command — it is pre-built with the correct hostname and port
+* Note the **API URL** — used for `oc login`
+
+The following table describes every field in the Outputs panel:
+
+[cols="1,2",options="header"]
+|===
+| Field | Description
+| **API URL** | OpenShift API endpoint used for `oc login` and kubeconfig
+| **OCP Console** | OpenShift Web Console URL — open directly in your browser
+| **Cluster Admin Username** | `kubeadmin`
+| **Cluster Admin Password** | Hidden — click the eye or copy icon
+| **Bastion SSH connection** | Pre-built SSH command — copy and paste directly into your terminal
+| **Bastion Username** | `itzuser`
+| **Bastion Password** | Hidden — required only for `sudo` on the Bastion, not for SSH login
+| **Download kubeconfig** | btn:[Download] — saves as `conf_kubeconfig_download.conf`
+| **The private SSH key** | btn:[Download] — required to authenticate SSH to the Bastion
+| **VM Remote Console** | Browser-based VNC access to the underlying cluster VMs
+| **Environment ID** | Your unique 24-character environment identifier
+| **Installed OCP Version** | The OpenShift version running in your cluster
+|===
+
+IMPORTANT: The Bastion host uses **key-based SSH authentication only** on port 10022. Password authentication is disabled on that port. You must download the private SSH key before attempting to connect.
+
+== Choosing an Access Method
+
+[cols="1,2,1",options="header"]
+|===
+| Method | Best for | Requires
+| **OpenShift Web Console** | UI-driven tasks, monitoring, Software Catalog | Browser only
+| **Bastion host (SSH)** | CLI tasks — `oc` is pre-installed, no local setup needed | SSH client + private key
+| **Local `oc` on your laptop** | CLI tasks without connecting to the Bastion | `oc` installed + kubeconfig
+|===
+
+== Option 1: OpenShift Web Console
+
+The OpenShift Web Console runs entirely in your browser — no software installation required.
+
+1. From your TechZone reservation page, copy the **OCP Console** URL.
+2. Open it in your browser.
+3. On the login page, select the **kube:admin** identity provider.
++
+[TIP]
+====
+Select **kube:admin** rather than IBMid to ensure you log in with full `cluster-admin` privileges.
+====
+4. Enter `kubeadmin` as the username and paste the **Cluster Admin Password** from your reservation outputs.
+5. Upon successful authentication the OpenShift Administrator Dashboard is displayed.
+
+TIP: When your browser offers to save the password, accept — you will be logging back in frequently throughout the labs.
+
+== Option 2: Bastion Host via SSH
+
+The Bastion host has `oc`, `kubectl`, `helm`, and `curl` pre-installed. Connecting via SSH is the quickest way to run CLI commands without any local setup.
+
+=== Step 1: Download the private SSH key
+
+On your TechZone reservation page, click btn:[Download] next to **The private SSH key for the deployed virtual machine**. The file saves as `vm_ssh_key.vm` (check your Downloads folder).
+
+=== Step 2: Set key permissions
+
+SSH requires the private key file to be readable only by your user.
+
+*macOS / Linux:*
+
+[source,shell]
+----
+chmod 400 ~/Downloads/vm_ssh_key.vm
+----
+
+*Windows (PowerShell):*
+
+[source,powershell]
+----
+icacls "$env:USERPROFILE\Downloads\vm_ssh_key.vm" /inheritance:r /grant:r "$env:USERNAME:(R)"
+----
+
+=== Step 3: Connect via SSH
+
+Copy the **Bastion SSH connection** command from your reservation page — it is pre-populated with the correct hostname and port. Add the `-i` flag pointing to your downloaded key:
+
+*macOS / Linux:*
+
+[source,shell]
+----
+ssh -i ~/Downloads/vm_ssh_key.vm itzuser@api.<env-id>.techzone.ibm.com -p 10022
+----
+
+*Windows (PowerShell — OpenSSH is built in to Windows 10 and 11):*
+
+[source,powershell]
+----
+ssh -i "$env:USERPROFILE\Downloads\vm_ssh_key.vm" itzuser@api.<env-id>.techzone.ibm.com -p 10022
+----
+
+[NOTE]
+====
+If you are on an older Windows version without built-in OpenSSH, use https://www.putty.org/[PuTTY^]. Convert `vm_ssh_key.vm` to PuTTY format using **PuTTYgen** (btn:[Load] → btn:[Save private key]), then connect via PuTTY on port 10022.
+====
+
+=== Step 4: Log in to OpenShift from the Bastion
+
+Once connected to the Bastion, log in to your OpenShift cluster using the **API URL** and **Cluster Admin Password** from your reservation:
+
+[source,shell]
+----
+oc login -u kubeadmin -p <cluster-admin-password> https://api.<env-id>.techzone.ibm.com:6443
+----
+
+Verify connectivity:
+
+[source,shell]
+----
+oc whoami
+oc get nodes
+----
+
+`oc whoami` should return `kubeadmin` and `oc get nodes` should list all cluster nodes in `Ready` state.
+
+== Option 3: Local `oc` CLI on Your Laptop
+
+If you prefer to run `oc` commands directly from your laptop without SSH-ing to the Bastion, install the `oc` CLI and use the downloaded kubeconfig.
+
+=== Step 1: Install the `oc` CLI
+
+*macOS:*
+
+[source,shell]
+----
+# Using Homebrew
+brew install openshift-cli
+
+# Verify
+oc version
+----
+
+Alternatively, download the binary from the OCP Web Console: click the Help icon (kbd:[?]) in the top-right masthead and select menu:Help[Command Line Tools], then download the macOS binary and move it to `/usr/local/bin/`.
+
+*Linux:*
+
+[source,shell]
+----
+# Download from the OCP Web Console (Help > Command Line Tools), or use the mirror:
+curl -LO https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz
+tar -xvf openshift-client-linux.tar.gz
+sudo mv oc /usr/local/bin/
+oc version
+----
+
+*Windows:*
+
+Download the `oc` binary from the OCP Web Console (Help icon → menu:Help[Command Line Tools] → **Windows**). Extract the zip and move `oc.exe` to a folder on your `PATH` (e.g. `C:\tools\`).
+
+Alternatively, install via Chocolatey:
+
+[source,powershell]
+----
+choco install openshift-cli
+oc version
+----
+
+=== Step 2: Download the kubeconfig
+
+On your TechZone reservation page, click btn:[Download] next to **Download kubeconfig**. The file saves as `conf_kubeconfig_download.conf`.
+
+=== Step 3: Connect using the kubeconfig
+
+*macOS / Linux:*
+
+[source,shell]
+----
+export KUBECONFIG=~/Downloads/conf_kubeconfig_download.conf
+oc whoami
+oc get nodes
+----
+
+*Windows (PowerShell):*
+
+[source,powershell]
+----
+$env:KUBECONFIG = "$env:USERPROFILE\Downloads\conf_kubeconfig_download.conf"
+oc whoami
+oc get nodes
+----
+
+A successful connection returns `system:admin` from `oc whoami`.
+
+[TIP]
+====
+To make the kubeconfig permanent across terminal sessions, merge it into your default `~/.kube/config`:
+
+[source,shell]
+----
+# macOS / Linux
+KUBECONFIG=~/.kube/config:~/Downloads/conf_kubeconfig_download.conf \
+  oc config view --flatten > /tmp/merged && mv /tmp/merged ~/.kube/config
+----
+====
+
+== SSH to IBM Storage Scale node
+
+=== Option 1: Bastion node
+
+To SSH from the Bastion directly into the IBM Storage Scale node:
+
+[source,shell]
+----
+ssh itzuser@10.10.10.202 <1>
+----
+<1> Verify this IP against the VM Remote Console page before use.
+
+=== Option 2: Directly from your workstation
+
+*macOS / Linux:*
+
+[source,shell]
+----
+ssh -i ~/Downloads/vm_ssh_key.vm itzuser@api.<env-id>.techzone.ibm.com -p 10023
+----
+
+*Windows (PowerShell — OpenSSH is built in to Windows 10 and 11):*
+
+[source,powershell]
+----
+ssh -i "$env:USERPROFILE\Downloads\vm_ssh_key.vm" itzuser@api.<env-id>.techzone.ibm.com -p 10023
+----
+
+[NOTE]
+====
+If you are on an older Windows version without built-in OpenSSH, use https://www.putty.org/[PuTTY^]. Convert `vm_ssh_key.vm` to PuTTY format using **PuTTYgen** (btn:[Load] → btn:[Save private key]), then connect via PuTTY on port 10023.
+====
+
+== VM IP Address Reference
+
+The following IP addresses are assigned to VMs in the standard TechZone Fusion environment. Your configuration may include additional worker nodes — treat this as a representative reference:
+
+[cols="1,1",options="header"]
+|===
+| VM | IP Address
+| `itz-++*++-bastion-1` | `10.10.10.201`
+| `itz-++*++-scale-*` | `10.10.10.202`
+| `itz-++*++-master-1` | `10.10.10.11`
+| `itz-++*++-master-2` | `10.10.10.12`
+| `itz-++*++-master-3` | `10.10.10.13`
+| `itz-++*++-infra-1` | `10.10.10.2`
+| `itz-++*++-infra-2` | `10.10.10.3`
+| `itz-++*++-infra-3` | `10.10.10.4`
+| `itz-++*++-worker-1` | `10.10.10.21`
+| `itz-++*++-worker-2` | `10.10.10.22`
+| `itz-++*++-worker-3` | `10.10.10.23`
+|===
+
+////
+== VM Remote Console
+
+The TechZone reservation page provides a **VM Remote Console** link that opens a browser-based VNC connection to the underlying cluster VMs, including the Bastion host.
+
+If a graphical desktop has been enabled on the Bastion, this console gives you a full GUI environment — useful for learners who prefer a side-by-side layout: the lab guide open in one browser window and a terminal in another, without needing a local SSH client.
+
+=== Opening the VM Remote Console
+
+1. From your reservation page, click the **VM Remote Console** URL.
+2. You will see a grid of VM thumbnails for all nodes in your environment.
+3. Locate the Bastion VM (`itz-++*++-bastion-1`) and click btn:[Console].
+4. A VNC session opens in your browser. Log in with `itzuser` and the **Bastion Password** from your reservation outputs.
+
+=== Recommended layout
+
+Once logged in to the Bastion GUI:
+
+* Open a browser and navigate to the **OCP Console** URL — log in with `kubeadmin`.
+* Open a second window or tab with this lab guide.
+* Open a terminal emulator for CLI tasks.
+
+Arrange the browser and terminal side-by-side so you can follow the guide steps and run commands simultaneously without switching between your local machine and the lab environment.
+
+WARNING: Do not reboot any VMs from the console page unless explicitly instructed to do so by the lab guide or a support team member.
+////
+
+include::partial$nav-getting-started-access.adoc[]

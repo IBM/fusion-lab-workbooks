@@ -1,0 +1,4 @@
+[NOTE]
+====
+This lab requires an active IBM Fusion reservation on IBM Technology Zone (TechZone). For step-by-step guidance on creating an IBMid, reserving an environment, and retrieving your cluster credentials, see the xref:getting-started/tz-quick-start.adoc[TechZone Quick Start Guide].
+====

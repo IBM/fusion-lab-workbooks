@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:ocp-virt/overview.adoc[← Virtualization Overview]
+| xref:ocp-virt/deploy-vm.adoc[Deploy & Manage VMs →]
+|===

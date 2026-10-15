@@ -1,0 +1,63 @@
+= IBM Fusion Operator Installation & Console Overview
+:navtitle: Operator & Console
+
+== Introduction
+
+Although your Red Hat OpenShift cluster is provisioned on IBM Technology Zone, IBM Fusion has not yet been deployed. In this guide, you will install the IBM Fusion Operator from the Software Catalog, accept the product license, and explore the core administration interface.
+
+include::partial$prereqs-techzone.adoc[]
+
+== Installing the IBM Fusion Operator
+
+The IBM Operator Catalog and entitlement secrets are pre-configured on your TechZone OpenShift cluster.
+
+=== Install via OpenShift Web Console
+
+1. Log in to the OpenShift Web Console as `kubeadmin`.
+2. In the left navigation menu, go to menu:Ecosystem[Software Catalog].
+3. In the search field, type `Fusion` and select the **IBM Storage Fusion** operator tile.
+4. Click btn:[Install].
+5. Leave all installation options as default:
+   * **Update channel:** Stable channel (e.g., `v2.x`)
+   * **Installation mode:** All namespaces on the cluster (default)
+   * **Installed Namespace:** `ibm-spectrum-fusion-ns` (or Operator-recommended namespace)
+   * **Approval Strategy:** Automatic
+6. Click btn:[Install] at the bottom of the form.
+7. Wait until the Operator status shows **Succeeded** / **Installed operator - ready for use**.
+
+=== Optional: Install via OpenShift CLI (`oc`)
+
+You can also verify or initiate operator installation from the Bastion terminal:
+
+[source,shell]
+----
+oc get csv -n ibm-spectrum-fusion-ns
+----
+
+== Connecting to the IBM Fusion Management Console
+
+IBM Fusion is container-native and integrates directly into the OpenShift console.
+
+1. From the top masthead of the OpenShift Web Console, click the **Application Menu** icon (the 9-square grid).
+2. Click **IBM Storage Fusion** from the dropdown menu. A new browser tab opens to the Fusion interface.
+3. If prompted with the OpenShift login page, select **kube:admin** and enter your cluster credentials.
+4. On first launch, review and select **I have read and accept the license agreement**, then click btn:[Continue].
++
+[NOTE]
+====
+Accepting the license initializes the core `SpectrumFusion` Custom Resource (CR) in the `ibm-spectrum-fusion-ns` namespace.
+====
+5. You are redirected to the **Welcome to IBM Fusion** dashboard.
+
+== Navigating the IBM Fusion Dashboard
+
+The IBM Fusion interface provides a unified view of data management services:
+
+* **Services:** View installed services and install optional capabilities (Fusion Data Foundation, Backup & Restore, Data Cataloging).
+* **Storage:** Manage local storage clusters, StorageClasses, and remote IBM Storage Scale file systems.
+* **Backup & Restore:** Configure backup locations (S3), retention policies, and application protection.
+* **Events:** View Kubernetes-native events with severity filtering (Info, Warning, Critical).
+* **Settings:** Review cluster networking, Call Home diagnostics, and cluster interconnect status.
+* **Help & Support:** Access the question-mark icon in the masthead to download support logs or link to official IBM documentation.
+
+include::partial$nav-fusion-install.adoc[]

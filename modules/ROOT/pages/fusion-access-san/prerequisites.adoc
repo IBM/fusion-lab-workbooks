@@ -1,0 +1,47 @@
+= IBM Fusion Access for SAN: Prerequisites & Limitations
+:navtitle: Prerequisites & Limitations
+
+include::partial$fusion-access-san-attrs.adoc[]
+
+== Prerequisites
+
+Before installing and configuring IBM Fusion Access for SAN, ensure the following requirements are met:
+
+=== Infrastructure Requirements
+
+* **Bare-metal worker nodes** with attached SAN storage
+* **A working container registry** enabled
+* **All worker nodes must connect to the same LUNs** — a shared LUN is a shared disk accessed by all worker nodes simultaneously
+* **Kubernetes pull secret** for the IBM Cloud Container Registry (ICR)
+
+=== OpenShift Cluster Requirements
+
+* Red Hat OpenShift {ocp-version} or later
+* IBM Fusion {fusion-version} or later (GA since 2.11)
+* Worker nodes: minimum {worker-node-count} dedicated worker nodes for storage cluster
+* OpenShift cluster must have the IBM Operator Catalog configured
+* Entitlement key for IBM Cloud Container Registry
+
+== Limitations
+
+=== IBM Fusion Access for SAN Limitations
+
+* **Hosted Control Plane (HCP) clusters are not supported**
+
+=== IBM Storage Scale CNSA Limitations (applicable to Fusion Access for SAN)
+
+Since IBM Fusion Access for SAN is based on IBM Storage Scale Container Native Storage Access (CNSA), the following CNSA limitations apply:
+
+* Deployment of IBM Storage Scale pods on master nodes is not supported except for "compact" Red Hat OpenShift clusters
+* Deployment of IBM Storage Scale pods on nodes with ARM CPUs is not supported
+* Single node IBM Storage Scale container native clusters are not supported
+* Maximum number of worker nodes supported: **128**
+* Maximum number of local filesystems supported: **3**
+* Maximum number of storage nodes: **32**
+* Maximum number of disks per local filesystem: **128**
+
+== References
+
+* Prerequisites documentation: https://www.ibm.com/docs/en/fusion-software/{fusion-version}.0?topic=fusion-access-san[IBM Fusion Access for SAN Prerequisites^]
+
+include::partial$nav-fusion-access-san-prerequisites.adoc[]

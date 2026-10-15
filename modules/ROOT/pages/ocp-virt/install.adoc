@@ -1,0 +1,136 @@
+= Installing OpenShift Virtualization
+:navtitle: Install OCP-Virt
+
+== Introduction
+
+In this guide you will install the four operators required to support all OpenShift Virtualization lab exercises, initialize the HyperConverged cluster resource, and set up the shared lab prerequisites (projects, SSH key, `virtctl` CLI).
+
+include::partial$prereqs-techzone.adoc[]
+
+== Install Required Operators from Software Catalog
+
+1. Log in to the OpenShift Web Console as `kubeadmin`.
+2. Navigate to menu:Ecosystem[Software Catalog].
+3. Install each of the following operators with default settings (default namespace, automatic approval) by searching for the name and clicking btn:[Install]:
++
+[cols="40%,60%",options="header"]
+|===
+| Operator | Purpose
+| **OpenShift Virtualization** | KubeVirt engine and `HyperConverged` cluster resource
+| **Migration Toolkit for Virtualization (MTV)** | Migrate VMs from external sources (OVA/OVF) into OSV
+| **MetalLB** | Bare-metal LoadBalancer for exposing VM services externally
+| **Kubernetes NMState** | Node-level network configuration (bridges, bonds, VLANs)
+|===
+
+////
+AUTHOR NOTE: Channel 2.7 has a known OVA migration failure in the TechZone environment.
+Review newer MTV versions to determine if the issue is resolved before updating this channel recommendation.
+If a newer version is confirmed working, update the channel below and remove this comment.
+AUTHOR NOTE: On 2026-10-12 when reviewed and tested with OpenShift Version 4.21 the default channel 2.12 works just fin
+therefor the note below is being removed.
+[NOTE]
+====
+For the MTV operator, select channel `release-v2.6` — channel 2.7 has a known failure with OVA migrations.
+====
+////
+
+== Initialize the HyperConverged Cluster
+
+1. Navigate to menu:Ecosystem[Installed Operators > OpenShift Virtualization Operator].
+2. Click the **HyperConverged** tab and select btn:[Create HyperConverged].
+3. Scroll down to the `vmStateStorageClass` field and enter `ocs-storagecluster-cephfs`.
++
+[NOTE]
+====
+`vmStateStorageClass` configures the storage class used to persist the virtual Trusted Platform Module (vTPM) state across VM restarts and live migrations. Required for Windows 2022 VMs.
+====
+4. Accept all other defaults and click btn:[Create].
+5. Wait for the status to show **Available**. When a **Web console update is available** banner appears, click btn:[Refresh web console].
+
+*Verify from the CLI:*
+
+[source,shell]
+----
+oc get hyperconverged -n openshift-cnv
+----
+
+The `PHASE` column should show `Available` before proceeding.
+
+== Initialize the MTV ForkliftController
+
+1. Navigate to menu:Ecosystem[Installed Operators > Migration Toolkit for Virtualization Operator].
+2. Click the **ForkliftController** tab and select btn:[Create ForkliftController].
+3. Leave the name as `forklift-controller` and click btn:[Create].
+4. Wait for the status to show **Running**. Refresh the web console when prompted — a new **Migration** menu item will appear in the left navigation.
+
+*Verify from the CLI:*
+
+[source,shell]
+----
+oc get forkliftcontroller -n openshift-mtv
+----
+
+The `STATUS` column should show `Running` before proceeding.
+
+== Initialize the NMState Instance
+
+1. Navigate to menu:Ecosystem[Installed Operators > Kubernetes NMState Operator].
+2. Click btn:[Create instance] in the **NMState** tile.
+3. Accept all defaults and click btn:[Create].
+4. Refresh the web console when prompted — **NodeNetworkConfigurationPolicy** and **NodeNetworkState** entries will appear under the **Networking** menu.
+
+*Verify from the CLI:*
+
+[source,shell]
+----
+oc get nmstate
+----
+
+The `AVAILABLE` column should show `True` before proceeding.
+
+== Red Hat OpenShift Virtualization Lab Setup
+
+=== Create Three Projects
+
+Create three projects that are used across the lab exercises:
+
+[source,shell]
+----
+oc new-project vmlab
+oc new-project vmbackup
+oc new-project vmnetwork
+----
+
+Or from the OpenShift Web Console: navigate to menu:Home[Projects], click btn:[Create Project], and create each project in turn.
+
+=== Create SSH Key for Virtual Machines
+
+You will use an SSH key pair to connect to Linux VMs via `virtctl`. Generate the key pair on the Bastion host:
+
+1. SSH to the Bastion host (see xref:getting-started/access.adoc[Accessing the Environment]).
+2. Generate a key pair, accepting all defaults:
++
+[source,shell]
+----
+ssh-keygen -t rsa -b 2048
+----
++
+////
+AUTHOR NOTE: With the current RHEL version used for this lab the default for ssh-keygen no longer is -t rsa
+so we are forcing it and setting the key length to 2048 to make it look good and safe
+////
++
+3. In the OpenShift Web Console, navigate to menu:Virtualization[Overview > Settings > User].
+4. Expand **Manage SSH keys**. Select project `vmlab` and click btn:[Not configured] under **Authorized SSH key**.
+5. Select btn:[Add new], then return to your Bastion terminal and print the public key:
++
+[source,shell]
+----
+cat /home/itzuser/.ssh/id_rsa.pub
+----
++
+6. Copy the output and paste it into the **SSH key** field. Enter `bastion-ssh` as the **Secret Name** and click btn:[Save].
+
+include::partial$install-virtctl.adoc[]
+
+include::partial$nav-ocp-virt-install.adoc[]

@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:backup-restore/protect-workloads.adoc[← Protect Workloads]
+| xref:backup-restore/recipes.adoc[Recipes & Service Protection →]
+|===

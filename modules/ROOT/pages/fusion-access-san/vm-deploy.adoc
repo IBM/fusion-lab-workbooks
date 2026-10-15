@@ -1,0 +1,135 @@
+= Deploying a Virtual Machine using Fusion Access for SAN
+:navtitle: Deploy VM
+
+include::partial$fusion-access-san-attrs.adoc[]
+
+== Introduction
+
+This guide demonstrates deploying a virtual machine using the IBM Fusion Access for SAN storage class (`{storage-class-name}`) with OpenShift Virtualization.
+
+[IMPORTANT]
+====
+Fusion Access for SAN is only supported on bare-metal worker nodes. This lab environment uses nested virtualization for demonstration purposes only.
+====
+
+== Step 1: Install OpenShift Virtualization Operator
+
+1. Navigate to menu:Ecosystem[Software Catalog] (OperatorHub).
+2. Search for **OpenShift Virtualization**.
+3. Click on the operator to install it.
+4. Leave all defaults and click btn:[Install].
+5. After installation, click **Create HyperConverged** to create the deployment.
+6. Accept all defaults and wait for status to show **Available**.
+
+== Step 2: Create a Virtual Machine
+
+1. Navigate to **OpenShift Virtualization** in the left pane (refresh if needed).
+2. Click **Create VirtualMachine**.
+3. Choose a boot source (e.g., CentOS Stream 9 container disk).
+4. Select a **General Purpose** instance type.
+5. Under **Virtual Machine Details**, select the **{storage-class-name}** StorageClass from the dropdown.
+6. Click **Create VirtualMachine**.
+
+The VM will be created and started (takes a few minutes).
+
+== Step 3: Verify PVC Creation
+
+Navigate to **Storage** → **PersistentVolumeClaims** in the OpenShift Virtualization namespace.
+
+A PVC is created and bound using the `{storage-class-name}` storage class.
+
+[source,shell]
+----
+oc get pvc -n openshift-cnv
+----
+
+Expected output:
+```
+NAME                    STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS         AGE
+centos-stream9-dv       Bound    pvc-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx   30Gi       RWX            {storage-class-name}   5m
+```
+
+=== Fileset Creation
+
+IBM Storage Scale CNSA creates a **fileset** for each PVC. Filesets are recommended for:
+* Granular snapshots
+* Quota enforcement
+
+Verify on the Scale cluster:
+```
+Fileset created for PVC: centos-stream9-dv
+```
+
+== Step 4: Access the Virtual Machine
+
+1. Navigate back to **OpenShift Virtualization** → **Virtual Machines**.
+2. Wait for the VM to show **Running** state.
+3. Click the VM name, then click **Console** to launch the VNC/Serial console.
+4. Login with credentials displayed on the console screen.
+
+== Step 5: Generate I/O and Monitor Performance
+
+### Generate Write Traffic
+
+In the VM console:
+
+[source,shell]
+----
+dd if=/dev/zero of=/mnt/testfile bs=1G count=5 oflag=direct
+----
+
+### Monitor on IBM Storage Scale CNSA GUI
+
+1. In Fusion Console, navigate to **Storage** → **Fusion Access for SAN**.
+2. Click **Link to file system dashboard** to open the CNSA GUI.
+3. Navigate to **Statistics** to view client I/O metrics for the filesystem.
+
+You should see read/write throughput and IOPS for the VM workload.
+
+== Step 6: Resiliency Test (Optional)
+
+Simulate a storage node failure:
+
+. Cordon and drain a worker node that is part of the storage cluster but NOT running the VM (e.g., `{worker-node-prefix}3`):
+[source,shell]
+----
+oc adm cordon {worker-node-prefix}3
+oc adm drain {worker-node-prefix}3 --ignore-daemonsets --delete-emptydir-data
+# Reboot the node via cloud provider console
+----
+
+. Verify the VM continues running and generating I/O on the remaining nodes.
+
+. Check IBM Storage Scale CNSA GUI → Statistics to confirm continued I/O.
+
+. On the Scale node, verify sessions:
+[source,shell]
+----
+targetcli sessions
+----
+
+. When the node returns, uncordon and verify it rejoins:
+[source,shell]
+----
+oc adm uncordon {worker-node-prefix}3
+oc get pods -n ibm-spectrum-scale
+targetcli sessions
+----
+
+All {worker-node-count} workers should show `LOGGED_IN` and core pods should be running on the recovered node.
+
+== Step 7: Containerized Application PVC (Optional)
+
+While Fusion Access for SAN is intended for OpenShift Virtualization, the underlying CNSA can also serve containerized applications.
+
+1. Navigate to **Storage** → **PersistentVolumeClaims** in the `ibm-spectrum-scale` namespace.
+2. Click **Create PersistentVolumeClaim**.
+3. Configure:
+   * Name: `cnsa-csi-pvc`
+   * Size: `10GB`
+   * StorageClass: `{storage-class-name}`
+   * Access Mode: `RWX`
+4. Click **Create** and monitor events.
+5. Verify the PVC is bound and available on the Scale cluster.
+
+include::partial$nav-fusion-access-san-vm-deploy.adoc[]

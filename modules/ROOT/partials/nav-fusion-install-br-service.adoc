@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:fusion-foundations/storage-scale.adoc[← IBM Storage Scale]
+| xref:backup-restore/overview.adoc[B&R Architecture & Concepts →]
+|===

@@ -1,0 +1,117 @@
+= Protecting Workloads
+:navtitle: Protect Workloads
+
+== Introduction
+
+In this exercise you will deploy a stateful file browser application, protect it with both backup policies created in the previous lab, trigger an initial backup, monitor its progress, and restore the application to a new namespace.
+
+include::partial$prereqs-techzone.adoc[]
+
+== Deploy the Filebrowser Application
+
+=== Create the Project
+
+*From the OpenShift Web Console:*
+
+1. Navigate to menu:Home[Projects]. Click btn:[Create Project].
+2. Enter `filebrowser` in the **Name** field and click btn:[Create].
+
+*From the CLI:*
+
+[source,shell]
+----
+oc new-project filebrowser
+----
+
+=== Import the Application YAML
+
+1. Verify the active project is `filebrowser`.
+2. Click the Quick create icon (`+`) in the masthead and select **Import YAML**.
+3. Paste the following YAML and click btn:[Create]:
++
+[source,yaml]
+----
+include::example$filebrowser-all.yaml[]
+----
+
+=== Verify the Application
+
+*From the CLI:*
+
+[source,shell]
+----
+oc get pods,pvc -n filebrowser
+----
+
+All pods should be `Running` and PVCs `Bound` within a minute or two.
+
+*From the OpenShift Web Console:*
+
+Navigate to menu:Networking[Routes] (project: `filebrowser`) and click the **Location** URL to open the filebrowser in a new tab.
+
+=== Log In and Add Test Data
+
+1. Log in with **Username:** `admin` / **Password:** `admin`.
+2. Use btn:[New folder] and btn:[Upload] to create a couple of directories and upload a few files — these will be verified after restore.
+
+== Assign Backup Policies
+
+There are two ways to assign policies in the **Fusion console**. Either method works for this lab.
+
+=== Method A: Via the Applications Menu
+
+1. In the Fusion Console, navigate to menu:Applications[].
+2. Select the `filebrowser` checkbox and click btn:[Assign backup policy].
+3. Select both `daily-snapshot` and `weekly-backup` checkboxes.
+4. Leave **Back up now** enabled (green toggle). Click btn:[Save].
+
+=== Method B: Via Backed Up Applications
+
+1. Navigate to menu:Backup & restore[Backed up applications].
+2. Click btn:[Protect apps +].
+3. Select the local cluster from the drop-down. Select `filebrowser` from the list and click btn:[Next].
+4. Select both `daily-snapshot` and `weekly-backup`. Leave **Back up now** enabled. Click btn:[Assign].
+
+A confirmation notification appears in the upper-right corner when policies are successfully assigned.
+
+== Monitor Backup Progress
+
+1. Navigate to menu:Backup & restore[Backed up applications] and click `filebrowser`.
+2. Click the **Backups** tab to track real-time progress.
+3. The status transitions: `Pending` → `In progress` → `Completed`.
+
+*From the CLI* watch backup-related pods in the fusion namespace:
+
+[source,shell]
+----
+oc get pods -n ibm-spectrum-fusion-ns -w
+----
+
+== Restore to a New Namespace
+
+=== Run the Restore
+
+1. From the **Backed up applications** page, click `filebrowser` to open its overview page.
+2. Click btn:[Restore].
+3. Set **Target cluster** to `This cluster`.
+4. Select **Create a new project** and enter `filebrowser2`. Click btn:[Next].
+5. Select the most recent completed backup from the list. Click btn:[Next].
+6. Review the **Before restore / After restore** summary and click btn:[Restore].
+7. Confirm with btn:[Restore] in the dialog.
+
+=== Verify the Restore
+
+Monitor restore progress from menu:Backup & restore[Jobs > Restore tab] or from the CLI watch pods coming up in the restored namespace:
+
+[source,shell]
+----
+oc get pods,pvc -n filebrowser2 -w
+----
+
+Once the job shows **Completed**:
+
+1. On the OpenShift cluster UI navigate to menu:Networking[Routes] (project: `filebrowser2`) and click the **Location** URL.
+2. Log in with **Username:** `admin` / **Password:** `admin`.
+3. Confirm the directories and files uploaded before the backup are present — the restore is verified.
+
+include::partial$nav-backup-restore-protect-workloads.adoc[]

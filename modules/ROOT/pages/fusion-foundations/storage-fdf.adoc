@@ -1,0 +1,122 @@
+= Configuring Fusion Data Foundation (FDF)
+:navtitle: Fusion Data Foundation
+
+== Introduction
+
+In this guide you will enable the Data Foundation service in the IBM Fusion Console and configure the local Ceph storage cluster using the OpenShift Web Console wizard.
+
+include::partial$prereqs-techzone.adoc[]
+
+== Enabling the Data Foundation Service
+
+[NOTE]
+====
+This guide covers the **Local** configuration mode, the standard mode for single-cluster labs. For an overview of all FDF configuration modes (Local, Dynamic, External, and Provider), see xref:fusion-foundations/storage.adoc[Persistent Storage: Architecture & Concepts].
+====
+
+1. In the IBM Fusion Console, navigate to **Services** in the left navigation menu.
+2. Locate the **Data Foundation** service tile, click the tile, and then click btn:[Install].
+3. On the **Install service** screen, select the **Local** tile and click btn:[Install].
++
+[NOTE]
+====
+Selecting **Local** automatically installs the Local Storage Operator (LSO) — no separate LSO installation step is required.
+====
+4. Wait for the service status to show **Healthy**.
+
+== Configuring the Ceph Storage Cluster
+
+Once the Data Foundation service is enabled, configure the local Ceph storage cluster through the OpenShift Web Console wizard launched from Fusion:
+
+=== Step 1: Launch Storage Cluster Creation
+
+1. In the IBM Fusion Console, navigate to menu:Storage[Data Foundation] (or **Local storage**).
+2. Click btn:[Get Started] (or btn:[Configure Data Foundation] / btn:[Create Storage Cluster]).
+3. This redirects to the **Create StorageSystem** wizard in the OpenShift Web Console.
+
+=== Step 2: Backing Storage
+
+1. On the **Backing storage** page, select **Create a new StorageClass using local storage devices**.
+2. Click btn:[Next].
+
+=== Step 3: Advanced Settings
+
+1. On the **Advanced Settings** page, configure the default StorageClass options:
+   * Leave **Use Ceph RBD as the default StorageClass** checked. This sets Ceph RBD as the default StorageClass, eliminating the need to manually annotate a StorageClass after installation.
+   * If this cluster will host virtual machines, also check **Set default StorageClass for virtualization**. This marks the RBD virtualization StorageClass as the default for KubeVirt VM disks after installation.
+2. Leave all other options at their defaults and click btn:[Next].
+
+[NOTE]
+====
+Both default StorageClass options are configured here in the wizard. No additional manual annotation steps are required after installation.
+====
+
+=== Step 4: Create Local Volume Set
+
+1. Enter `ibm-spectrum-fusion` as the **LocalVolumeSet name**.
+2. Select **Disks on selected nodes** and choose the dedicated infra nodes (`itz-++*++-infra-1`, `itz-++*++-infra-2`, `itz-++*++-infra-3`).
+3. Set **Disk Type** to **SSD/NVMe**.
+4. Click the `^` to reveal the **Advanced** section, and enter "100" in the minimum drive size field; this will exclude the 50GiB drives.
+5. Click btn:[Next], then click btn:[Yes] to confirm creation of the LocalVolumeSet.
+
+=== Step 5: Capacity and Nodes
+
+1. Verify the **Available raw capacity** populated from the discovered disks.
+2. Select a **resource profile** — **Balanced** is recommended for lab environments.
+3. Click btn:[Next].
+
+=== Step 6: Security and Network
+
+1. Keep the default encryption settings unless KMS integration (Vault or Thales CipherTrust) is required.
+2. Keep the default network option (**Default (OVN)**) unless using Multus.
+3. Click btn:[Next].
+
+[NOTE]
+====
+If you are configuraing storage for Hosted Control Plane (HCP) then select the "Host" radio button.
+====
+
+=== Step 7: Data Protection
+
+1. If this cluster will be configured for Regional Disaster Recovery, select **Prepare cluster for disaster recovery (Regional-DR only)**.
+2. Otherwise leave unchecked and click btn:[Next].
+
+=== Step 8: Review and Create
+
+1. Review the configuration summary. Click btn:[Back] to correct any settings.
+2. Click btn:[Create StorageSystem].
+
+[NOTE]
+====
+Storage cluster initialization takes approximately 10–15 minutes. Wait until the cluster status reports **Ready / Healthy** under menu:Storage[Data Foundation] in the OpenShift console before proceeding.
+====
+
+=== Step 9: Verify StorageClasses and Ceph Cluster Health
+
+*From the OpenShift Web Console:*
+
+1. Navigate to menu:Storage[StorageClasses] and confirm the standard FDF storage classes are listed.
+2. Navigate to menu:Storage[Data Foundation] and confirm the storage cluster status shows **Ready / Healthy**.
+3. Navigate to menu:Ecosystem[Installed Operators > OpenShift Data Foundation] and confirm the operator status shows **Succeeded**.
+
+*From the CLI:*
+
+[source,shell]
+----
+# Check provisioned StorageClasses
+oc get sc
+
+# Verify Ceph cluster status
+oc get storagecluster -n openshift-storage
+
+# Confirm all ODF pods are Running or Completed
+oc get pods -n openshift-storage
+----
+
+The following standard StorageClasses should now be available:
+
+* `ocs-storagecluster-ceph-rbd` (Block storage for containers & VMs)
+* `ocs-storagecluster-cephfs` (Shared file storage / RWX)
+* `openshift-storage.noobaa.io` (Object Bucket Claims / S3)
+
+include::partial$nav-fusion-storage-fdf.adoc[]

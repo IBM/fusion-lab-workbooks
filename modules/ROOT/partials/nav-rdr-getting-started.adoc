@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:rdr/overview.adoc[← RDR Architecture]
+| xref:rdr/failover-failback.adoc[Failover & Failback →]
+|===

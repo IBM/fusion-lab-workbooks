@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:fusion-foundations/install-br-service.adoc[← Install Backup & Restore Service]
+| xref:backup-restore/locations-policies.adoc[Locations & Policies →]
+|===

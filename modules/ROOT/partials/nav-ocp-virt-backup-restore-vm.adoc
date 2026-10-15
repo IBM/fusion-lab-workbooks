@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:ocp-virt/networking.adoc[← VM Networking]
+|
+|===

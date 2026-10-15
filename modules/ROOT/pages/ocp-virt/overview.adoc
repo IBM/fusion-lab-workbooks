@@ -1,0 +1,45 @@
+= OpenShift Virtualization with IBM Fusion: Architecture & Overview
+:navtitle: Virtualization Overview
+
+== Introduction
+
+**OpenShift Virtualization (OCP-Virt / OSV)** enables enterprises to run and manage legacy virtual machine (VM) workloads alongside modern containerized microservices on a single, unified Red Hat OpenShift platform.
+
+When combined with **IBM Fusion**, VMs benefit from enterprise-grade persistent block storage (Fusion Data Foundation Ceph RBD), rapid VM live migration, snapshotting, and disaster recovery.
+
+== Key Capabilities
+
+* **Unified Platform:** Run containers and VMs side-by-side on the same OpenShift cluster, managed through a single control plane.
+* **Live Migration:** Move running VMs between worker nodes with zero downtime using KubeVirt's live migration engine — no shared storage or hypervisor-level clustering required.
+* **Fusion Storage Integration:** VMs consume Ceph RBD block volumes provisioned by Fusion Data Foundation, providing enterprise snapshotting, cloning, and disaster recovery for VM disks.
+* **virtctl CLI:** The `virtctl` command-line tool extends `oc` / `kubectl` with VM-specific operations including console access, start/stop, and live migration.
+
+== Architecture
+
+OpenShift Virtualization is built on the **KubeVirt** project. Each VM runs as a standard Kubernetes pod (a `VirtualMachineInstance`) containing a `libvirt` / QEMU process. This means VMs are scheduled, monitored, and managed using the same Kubernetes constructs as containers — namespaces, resource quotas, network policies, and storage classes all apply.
+
+== Prerequisites
+
+Before deploying VMs, the following operators must be installed from menu:Ecosystem[Software Catalog] and configured on the cluster. Full step-by-step instructions are in xref:ocp-virt/install.adoc[Install OCP-Virt].
+
+[cols="40%,10%,50%",options="header"]
+|===
+| Operator | Required | Purpose
+| **IBM Fusion** | Yes | IBM Fusion base operator to enable IBM Fusion Console
+| **IBM Fusion Data Foundation** | Yes | IBM Fusion Data Foundation data services to provide volumes to virtual machines
+| **IBM Fusion Backup & Restore Hub** | Yes | IBM Fusion BnR to provide virtual machine backup and restore capabilities
+| **OpenShift Virtualization** | Yes | Provides the KubeVirt engine and the `HyperConverged` cluster resource
+| **MetalLB** | Optional | Bare-metal LoadBalancer for exposing VM services externally
+| **Kubernetes NMState** | Optional | Node-level network configuration for secondary interfaces (bridges, bonds, VLANs)
+| **Migration Toolkit for Virtualization (MTV)** | Optional | Migrates VMs from external sources (OVA/OVF) into OpenShift Virtualization
+|===
+
+IMPORTANT: If you have not deployed the first three (3) operators above, please navigate back to the following chapters:
+
+* xref:fusion-foundations/install.adoc[IBM Fusion Base Operator installation]
+* xref:fusion-foundations/storage-fdf.adoc[IBM Fusion Data Foundation installation]
+* xref:backup-restore/overview.adoc[IBM Fusion Backup & Restore Overview]
+
+include::partial$versions-ocp-virt.adoc[]
+
+include::partial$nav-ocp-virt-overview.adoc[]

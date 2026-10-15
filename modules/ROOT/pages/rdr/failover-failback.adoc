@@ -1,0 +1,195 @@
+= Simulating Regional Failover and Failback
+:navtitle: Failover & Failback
+
+== Introduction
+
+In this exercise, you will deploy a sample stateful application on `local-cluster`, protect it with a disaster recovery policy, and execute simulated failover and failback operations between the primary and secondary clusters.
+
+include::partial$prereqs-techzone.adoc[]
+
+== Deploying a Sample Application
+
+1. In the `local-cluster` OpenShift Web Console, navigate to menu:Home[Projects] and click btn:[Create Project].
+2. Enter `filebrowser` as the project name and click btn:[Create].
+3. Ensure the active project is set to `filebrowser`. Click the Quick create icon (the `+` icon in the masthead) and select **Import YAML**.
+4. Copy the following YAML, paste it into the editor, and click btn:[Create]:
++
+[source,yaml]
+----
+include::example$filebrowser-all.yaml[]
+----
+5. Verify the application pods and PVCs are running:
++
+[source,shell]
+----
+oc get pods,pvc -n filebrowser
+----
+
+== Assigning a DR Policy to the Application
+
+1. In the `local-cluster` Web Console, navigate to menu:Core Platform[Fleet Management].
+2. Go to menu:Data Services[Disaster Recovery].
+3. Click btn:[Enroll applications] and select *ACM Discovered Applications*.
+4. From the **DR cluster** dropdown, select `local-cluster`. Locate the `filebrowser` application in the `filebrowser` namespace, enter `filebrowser` in the **Name** field, and click btn:[Next].
+5. Click btn:[Add label expression] and configure the application label:
+   * **Label / Key:** `app`
+   * **Values:** `filebrowser`
+6. Click btn:[Add PVC label selector] and configure the PVC label:
+   * **Label / Key:** `app`
+   * **Values:** `filebrowser`
+7. Click btn:[Next].
+8. Select the `ocp1-ocp2-dr` policy and click btn:[Next].
+9. Review the summary and click btn:[Apply].
+
+*Verify the DR policy was applied from the CLI (run on `local-cluster`):*
+
+[source,shell]
+----
+oc get drpc -n openshift-dr-ops
+----
+
+The `CURRENTSTATE` should show `Deployed` and `PREFERREDCLUSTER` should show `local-cluster` before proceeding.
+
+== Verifying Replication
+
+Once the DR policy is assigned, FDF begins asynchronous replication of the application's PVCs to `ocp2`.
+
+In the `local-cluster` Web Console (menu:Core Platform[Fleet Management] → menu:Data Services[Disaster Recovery] → **Protected applications**), verify that the DR status displays **Healthy**. Click the status badge to open the drawer and confirm that both **Application volumes (PVCs)** and **Kubernetes resources** display recent sync timestamps.
+
+== Preparing the Secondary Cluster for Failover
+
+This section prepares the secondary cluster for failover or relocation by creating the project on `ocp2` with matching security settings from `local-cluster` to ensure seamless application transition without SELinux or UID permission issues.
+
+1. In the `local-cluster` Web Console, navigate to menu:Home[Projects] and click the `filebrowser` project.
+2. Click the **YAML** tab.
+3. Select all the text in the YAML editor and copy it to the clipboard.
+4. Switch to the `ocp2` Web Console, click the Quick create icon (the `+` icon in the masthead), and select **Import YAML**.
+5. Paste the copied YAML into the editor.
+6. Remove the cluster-specific runtime metadata fields from the pasted YAML:
+   * Under `metadata`: delete `uid`, `resourceVersion`, `creationTimestamp`, and `managedFields`.
+   * At the bottom: delete `spec`, `finalizers`, and `status`.
++
+[NOTE]
+====
+Ensure you preserve `apiVersion`, `kind`, `metadata.name`, and all `metadata.annotations` (including `openshift.io/sa.scc.mcs`, `openshift.io/sa.scc.supplemental-groups`, and `openshift.io/sa.scc.uid-range`) as well as `metadata.labels`.
+====
+7. Click btn:[Create] to recreate the project on `ocp2` with identical security context and SELinux annotations.
+8. On `local-cluster`, confirm the DRPolicy status is `Validated`:
++
+[source,shell]
+----
+oc get drpolicy ocp1-ocp2-dr
+----
+
+== Executing a Failover (Simulated Unplanned Outage)
+
+1. In the `local-cluster` Web Console, navigate to menu:Core Platform[Fleet Management] → menu:Data Services[Disaster Recovery].
+2. Click the **Protected applications** tab.
+3. Locate the `filebrowser` application in the list.
+4. Click the application actions menu (three stacked dots) and select **Failover application**.
+5. In the **Failover application** modal dialog:
+   * Verify **Target cluster** indicates `ocp2`.
+   * Verify **Failover readiness** displays **Ready**.
+6. Click btn:[Initiate].
+7. In the **Disaster Recovery** table, click the status link (such as **FailingOver** or **WaitForUserCleanup**) in the **Data protection** column to view the failover activity drawer.
++
+Observe the 4 lifecycle progress steps:
+* **Preparing** — Prepares the target environment.
+* **Failover** — Directs storage replication cutover to `ocp2`.
+* **Restoring** — Restores Kubernetes resources and attaches the replicated PVCs.
+* **Clean up** / **WaitForUserCleanup** — Confirms application cutover on `ocp2`.
+8. Switch to the `ocp2` Web Console (or terminal) and observe the application pods and PVCs running in the `filebrowser` namespace:
++
+[source,shell]
+----
+oc get pods,pvc -n filebrowser -w
+----
+
+== Preparing for Failback (User Cleanup on Failed Cluster)
+
+Once failover completes, the DR activity drawer indicates: *"Clean up application resources on the failed cluster local-cluster to start the replication."* (status: `WaitForUserCleanup`). Lingering application resources must be removed from `local-cluster` to enable reverse replication from `ocp2` back to `local-cluster`.
+
+1. Open a terminal connected to `local-cluster` and delete all application resources, ConfigMaps, and PVCs associated with the `filebrowser` application:
++
+[source,shell]
+----
+export NS=filebrowser
+oc -n $NS delete all -l app=filebrowser
+oc -n $NS delete cm -l app=filebrowser
+oc -n $NS delete pvc -l app=filebrowser
+----
+2. In the `local-cluster` Web Console (menu:Core Platform[Fleet Management] → menu:Data Services[Disaster Recovery] → **Protected applications**), verify that the DR status returns to **Healthy**. Click the status badge and confirm:
+   * **Message:** *All volumes & Kubernetes resources are synced*
+   * **Application volumes (PVCs):** Displays a recent sync timestamp.
+   * **Kubernetes resources:** Displays a recent sync timestamp.
+   * **DR Policy:** `ocp1-ocp2-dr, sync every 5m`
+3. Confirm DR status from the CLI on `local-cluster`:
++
+[source,shell]
+----
+oc get drpc -n openshift-dr-ops
+----
++
+The output should confirm `DESIREDSTATE: Failover` and `CURRENTSTATE: FailedOver` targeting `ocp2`:
++
+[source,text]
+----
+NAME          AGE   PREFERREDCLUSTER   FAILOVERCLUSTER   DESIREDSTATE   CURRENTSTATE
+filebrowser   80m   local-cluster      ocp2              Failover       FailedOver
+----
+
+== Executing Failback (Relocate to Primary)
+
+Unlike an unplanned failover, **Relocate** is a planned, zero-data-loss operation that transitions the workload gracefully back to `local-cluster`. Because `filebrowser` is a **Discovered application**, the running workload on `ocp2` must be deleted during the relocation process so its storage volume can be unmounted and final delta synchronization can complete.
+
+1. In Fleet Management on `local-cluster`, navigate to menu:Data Services[Disaster Recovery].
+2. Click the **Protected applications** tab and locate the `filebrowser` application.
+3. Click the actions menu (three stacked dots) and select **Relocate application**.
+4. In the **Relocate application** modal dialog:
+   * Verify **Target cluster** indicates `local-cluster`.
+   * Verify **Relocate readiness** displays **Ready**.
+5. Click btn:[Initiate].
+6. In the **Disaster Recovery** table, click the status link in the **Data protection** column (such as **Relocating** or **Action needed**) to open the activity drawer.
++
+The workflow will progress to step 2 (**Clean up**) with the alert:
++
+`Clean up application resources on the primary cluster ocp2 to start relocating.`
++
+[NOTE]
+====
+For Discovered applications, ODR pauses at the **Clean up** step waiting for the VolumeReplicationGroup (VRG) on `ocp2` to transition from primary to secondary. Deleting the active pods and PVCs on `ocp2` releases the Ceph RBD volume locks so replication can demote.
+====
+7. Switch terminal context to **`ocp2`** and delete the active application resources:
++
+[source,shell]
+----
+export NS=filebrowser
+oc -n $NS delete all -l app=filebrowser
+oc -n $NS delete cm -l app=filebrowser
+oc -n $NS delete pvc -l app=filebrowser
+----
+8. Return to the `local-cluster` Web Console activity drawer and monitor the remaining automated phases:
+   * **Syncing** — Syncs the final storage delta snapshot from `ocp2` to `local-cluster`.
+   * **Restoring** — Restores Kubernetes resources (via OADP) and attaches the replicated PVCs on `local-cluster`.
+9. Verify that the application pods and PVCs are running on `local-cluster`:
++
+[source,shell]
+----
+oc get pods,pvc -n filebrowser -w
+----
+10. Confirm DR status from the CLI on `local-cluster`:
++
+[source,shell]
+----
+oc get drpc -n openshift-dr-ops
+----
++
+The output should confirm `DESIREDSTATE: Relocate` and `CURRENTSTATE: Relocated`:
++
+[source,text]
+----
+NAME          AGE   PREFERREDCLUSTER   FAILOVERCLUSTER   DESIREDSTATE   CURRENTSTATE
+filebrowser   92m   local-cluster      ocp2              Relocate       Relocated
+----
+
+include::partial$nav-rdr-failover-failback.adoc[]

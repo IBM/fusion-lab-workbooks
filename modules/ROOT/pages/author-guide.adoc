@@ -1,0 +1,469 @@
+= Authors' Guide: TechZone Lab Guides
+:navtitle: Authors' Guide
+:version: 1.0
+
+== Lab Guide documentation on GitHub
+
+A set of self-paced lab workbooks for use with IBM Fusion deployments on IBM TechZone. Lab Guides are intended for IBMers, Business Partners, and clients who wish to demo, evaluate, or learn IBM Fusion software functionality.
+
+This publication uses AsciiDoc markdown and is available in a public facing open source forum. This will allow access to IBMers, Business Partners, and clients who wish to use the lab workbooks as well as contribute to the completeness and correctness of the material over time as software frameworks such as OpenShift or IBM Fusion change or develop new functionality.
+
+== Antora and repository structure
+
+The lab guides repository is structured as an link:https://docs.antora.org/[Antora^] documentation component. Antora generates a multi-page web publication with integrated search, versioning, breadcrumb navigation, and on-page tables of contents.
+
+=== Component directory organization
+
+Files follow the standard Antora module directory structure:
+
+....
+<root>/
+├── antora.yml                 # Component metadata and navigation config
+└── modules/
+    └── ROOT/                  # Root or named module (e.g. fusion)
+        ├── nav.adoc           # Left-hand navigation outline
+        ├── pages/             # Lab guide AsciiDoc pages (.adoc)
+        │   ├── index.adoc
+        │   ├── author-guide.adoc
+        │   ├── getting-started/
+        │   │   ├── tz-quick-start.adoc
+        │   │   └── access.adoc
+        │   └── fusion-foundations/
+        │       ├── demo-guide.adoc
+        │       ├── install.adoc
+        │       ├── storage.adoc
+        │       ├── storage-fdf.adoc
+        │       └── storage-scale.adoc
+        ├── partials/          # Reusable shared snippets
+        │   ├── legal.adoc
+        │   ├── author-name1.adoc
+        │   └── author-name2.adoc
+        ├── assets/
+        │   └── images/        # Static images and screenshots (.png, .svg)
+        │       └── tz-fusion-reservation.png
+        └── examples/          # Verbatim scripts, YAML, and JSON files
+            ├── scripts/
+            └── yaml/
+....
+
+=== Release tags
+
+We will use the Git *tag* feature to mark frozen releases. Once we determine that a set of materials represent a certain code release we may tag that point in the repository to designate a release. Documentation readers may pick a release tag and access the materials associated with the release which that tag represents.
+
+== Style guide
+
+NOTE: This list is by not complete and will evolve over time. The idea is to set a style that will be followed by authors and will, when possible, be coded into common style sheets.
+
+=== Document header
+
+Each page begins with a single level-1 title (`= Title`), an optional navigation title (`:navtitle:`), and an Antora `include` statement for the author partial:
+
+....
+= IBM Fusion: TechZone Quick Start
+:navtitle: Quick Start
+
+....
+
+NOTE: The legal notice is included only on the Welcome (`index.adoc`) page and does not need to be added to individual lab guide pages.
+
+NOTE: Do not add `:toc:` or custom centered title blocks. Antora automatically renders the page title, breadcrumbs, and right-rail table of contents from the theme template.
+
+=== Document style sheet
+
+*Keep the formatting simple!* for example:
+
+* No more than 3 level nesting of section titles
+* No more than 2 level nesting of bulleted or numbered lists
+* Minimal graphics and media
+* Quoted shell, yaml, sections or linked to included scripts and YAML files
+* Break large documents to multiple parts
+
+=== UI macros
+
+The `experimental` attribute is enabled site-wide in the Antora playbook, which activates three AsciiDoc UI macros. Use them consistently to mark up interactive interface elements:
+
+`btn:++[++Label++]++`:: A clickable button in the UI (e.g. `btn:[Install]`, `btn:[Create]`, `btn:[Exit]`).
+
+`kbd:++[++Key++]++`:: A keyboard key or shortcut (e.g. `kbd:++[++Ctrl+C++]++` fo kbd:[Ctrl+C], `kbd:++[++Esc++]++` for kbd:[Esc]).
+
+`menu:Menu++[++Item > Subitem++]++`:: A menu or navigation path (e.g. menu:Ecosystem[Software Catalog], menu:Storage[Data Foundation]).
+
+....
+Click btn:[Install] and wait for the operator to become ready.
+
+Navigate to menu:Ecosystem[Software Catalog] and search for `Fusion`.
+
+Press kbd:[Ctrl+C] to cancel the running command.
+....
+
+Use `btn:++[++++]++` whenever you write "click <Button Name>", `menu:++[++++]++` whenever you describe a navigation path through menus or the left-hand nav, and `kbd:++[++++]++` whenever you reference a keyboard key or shortcut. Do not wrap button or menu labels in `++**++bold**` when a UI macro is more appropriate.
+
+=== Document sections
+
+Mandatory sections to include in each lab guide:
+
+* Introduction
+* Product disclaimer
+* Getting help
+* Prerequisites & getting started
+* Product on TechZone
+* Resources
+* Environment
+
+=== Scripts and YAML and JSON, oh my!
+
+Place complete scripts, YAML manifests, and sample configurations in the `examples/` directory of the module (e.g. `modules/ROOT/examples/scripts/` or `modules/ROOT/examples/yaml/`).
+
+Use Antora's `include::example$...` directive to reference external files directly rather than duplicating code:
+
+....
+[source,yaml]
+----
+\include::example$yaml/fusion-cr.yaml[]
+----
+....
+
+You can also include tagged regions or specific line ranges from example files:
+
+....
+[source,shell]
+----
+\include::example$scripts/setup.sh[tag=install]
+----
+....
+
+When embedding inline code blocks, always specify the source language attribute:
+
+....
+[source,shell]
+----
+oc get pods -n ibm-spectrum-fusion-ns
+----
+....
+
+Leave command shell comments outside of the `source` block so that they do not copy with the command line CLI text.
+
+=== Document attributes and parameterized partials
+
+AsciiDoc **document attributes** let you define named values that are substituted into content at render time. This is the standard mechanism for parameterizing reusable partials so they behave differently in different contexts.
+
+==== Setting an attribute
+
+Define an attribute in a page header or inline before an `include::`:
+
+....
+:metallb-ip-range: 192.168.252.200-192.168.252.220
+include::partial$install-metallb.adoc[]
+....
+
+The value `192.168.252.200-192.168.252.220` replaces every `\{metallb-ip-range}` reference inside the partial.
+
+==== Providing a default inside a partial
+
+Partials that accept an attribute should define a default using `ifndef::` so they render correctly even when the calling page does not set the attribute:
+
+....
+ifndef::metallb-ip-range[:metallb-ip-range: 10.10.10.200-10.10.10.250]
+....
+
+This means:
+
+* A page that does **not** set `:metallb-ip-range:` gets the default value.
+* A page that sets `:metallb-ip-range:` before the `include::` gets its own value.
+
+==== When to use this pattern
+
+Use parameterized attributes when:
+
+* The same procedure is used in multiple labs but one or two values differ (IP ranges, namespace names, policy names).
+* You want to avoid duplicating a partial just to change a single string.
+
+Document the expected attribute at the top of the partial as a comment so future authors know what to set.
+
+=== Media and screenshots
+
+Media such as PNG and SVG files can be a useful tool to show diagrams or UI snapshots, but can also be complicated and time consuming to update.
+
+Limit your media inclusion to the absolute minimum: include only important and relatively static architecture diagrams or complicated UI snapshots that are difficult to explain in text.
+
+Place all images in the `assets/images/` directory of your module. Name each file descriptively using kebab-case (e.g. `tz-fusion-reservation.png`).
+
+Reference images using the Antora target syntax (do not include the `assets/images/` path prefix):
+
+....
+image::tz-fusion-reservation.png[IBM Fusion reservation details, link=self]
+....
+
+Omit explicit `width=` and `align=` attributes. The Antora default UI CSS (`max-width: 100%`) automatically scales images to fill the content column at any viewport size, which is correct behaviour for high-resolution retina screenshots.
+
+Always include `link=self` so that learners can click the image to open the full-resolution version in a new browser tab. The Antora default UI does not include a built-in image lightbox or zoom modal — `link=self` is the recommended approach for full-size access without requiring UI customisation.
+
+=== Links and Cross References
+
+The rule for tab behaviour is simple and consistent across the entire site:
+
+* **Internal links (`xref:`)** — always open in the **same tab**. Never add `^` to an xref. Internal pages are part of the same site; learners navigate between them using the browser Back button, the left-hand nav, and the page footer. Opening them in a new tab breaks that flow and creates tab clutter.
+* **External links (`https://...`)** — always open in a **new tab**. Always append `^` so learners don't lose their place in the lab guide when following a reference link.
+
+==== External links
+
+Include links to official product documentation sparingly to minimize broken links and maintenance overhead. Always append `^` to open external links in a new tab:
+
+....
+https://www.ibm.com/docs/en/storage-fusion-software[IBM Fusion documentation^]
+....
+
+==== Internal cross-references (Xrefs)
+
+To link between pages in the Antora site, use the `xref:` macro. Do **not** append `^`:
+
+....
+xref:getting-started/tz-quick-start.adoc[Quick Start Guide]
+....
+
+Or link directly to an in-page section anchor:
+
+....
+xref:getting-started/tz-quick-start.adoc#_prerequisites_getting_started[Prerequisites]
+....
+
+=== Spelling
+
+Please use a spell checker.
+
+=== Page navigation footer
+
+Every content page includes a navigation footer partial at the bottom of the file that renders Previous / Next links in a borderless two-column table. The partials live in `modules/ROOT/partials/` and follow the naming convention `nav-<page-path>.adoc`, where slashes in the path are replaced with hyphens (e.g. `nav-backup-restore-overview.adoc`).
+
+Each partial contains a two-column borderless table:
+
+....
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:previous-page.adoc[← Previous Page Title]
+| xref:next-page.adoc[Next Page Title →]
+|===
+....
+
+Leave a cell empty when there is no previous or next page for that position:
+
+....
+[cols="<,>",frame=none,grid=none]
+|===
+|
+| xref:next-page.adoc[Next Page Title →]
+|===
+....
+
+When adding a new page, create its corresponding partial in `modules/ROOT/partials/`, update the adjacent pages' partials to point to it, and add the include at the bottom of the new page:
+
+....
+\include::partial$nav-your-new-page.adoc[]
+....
+
+=== Registering pages in navigation (`nav.adoc`)
+
+To make a new lab guide appear in the left-hand navigation sidebar of the published Antora web site, add an entry to `modules/ROOT/nav.adoc`:
+
+....
+* xref:getting-started/tz-quick-start.adoc[TechZone Quick Start]
+* Fusion Foundations
+** xref:fusion-foundations/install.adoc[Installing IBM Fusion Operator]
+** xref:fusion-foundations/storage-fdf.adoc[Fusion Data Foundation]
+....
+
+== Tools
+
+*Antora* multi-repository documentation site generator: https://antora.org/[antora.org^] with documentation at https://docs.antora.org/[docs.antora.org^]
+
+*pandoc* a universal document conversion tool found at https://pandoc.org/[pandoc.org^]
+
+*docx-to-asciidoc* repository skill for converting Word lab guides to Antora-ready AsciiDoc
+
+*asciidoctor* command line AsciiDoc utilities found at https://asciidoctor.org/[asciidoctor.org^] with documentation at https://docs.asciidoctor.org/asciidoc/latest/[docs.asciidoctor.org^]
+
+*asciidoctor-pdf* command line wrapper for PDF generation: https://docs.asciidoctor.org/pdf-converter/latest/[docs.asciidoctor.org/pdf-converter^]
+
+*git* distributed version control system: https://git-scm.com/[git-scm.com^] with documentation at https://git-scm.com/docs[git-scm.com/docs^]
+
+== Testing your changes locally
+
+Before pushing or opening a pull request, always build and preview the site locally to catch broken xrefs, missing images, or formatting issues.
+
+The local playbook `antora-playbook-local.yml` is pre-configured to read content directly from your working tree using `worktrees: true`, so you do not need to commit your changes before previewing them.
+
+NOTE: The `.build/` output directory is listed in `.gitignore` and is never committed to the repository. Generated HTML is intentionally excluded from source control.
+
+=== Option 1: antora-viewer container (Podman, recommended)
+
+`antora-viewer` is a community container image that bundles Antora with a live-reload HTTP server. It watches your `.adoc` and `.yml` files for changes and automatically rebuilds the site — no manual re-runs needed.
+
+The site is served at http://localhost:9090[^] inside the container, avoiding the `file://` path issues that occur when opening HTML files directly from disk.
+
+==== Prerequisites
+
+* https://podman.io[Podman^]
+* The `antora-viewer` image built locally (one-time setup, see below)
+
+==== Build the image (first time only)
+
+[source,shell]
+----
+git clone https://github.com/juliaaano/antora-viewer.git
+cd antora-viewer/container
+podman build -t localhost/antora-viewer .
+----
+
+NOTE: The image uses a `Containerfile` rather than a `Dockerfile`. Podman supports both natively — no extra flags are needed.
+
+==== Run
+
+From the root of the `fusion-lab-guides` repository:
+
+[source,shell]
+----
+podman run --rm --name antora \
+  -v $PWD:/antora \
+  -e ANTORA_CONFIG=antora-playbook-local.yml \
+  -p 9090:8080 \
+  -i -t localhost/antora-viewer
+----
+
+Open http://localhost:9090[http://localhost:9090^] in your browser. The site rebuilds automatically each time you save an `.adoc` file. Press kbd:[Ctrl+C] to stop the container.
+
+IMPORTANT: The `-e ANTORA_CONFIG=antora-playbook-local.yml` flag is required. Without it the container looks for `site.yml` or `default-site.yml` and will not find a config file.
+
+=== Option 2: Node.js (no container)
+
+Use this option if you prefer not to use a container and already have Node.js on your machine.
+
+==== Prerequisites
+
+* https://nodejs.org/[Node.js^] v18 or later
+* npm (included with Node.js)
+
+==== Install Antora (first time only)
+
+[source,shell]
+----
+npm install -g @antora/cli @antora/site-generator
+----
+
+Verify the installation:
+
+[source,shell]
+----
+antora --version
+----
+
+==== Build
+
+From the root of the repository:
+
+[source,shell]
+----
+antora antora-playbook-local.yml
+----
+
+Antora writes the generated site to `.build/site/`. Open it in your browser:
+
+[source,shell]
+----
+open .build/site/index.html         # macOS
+xdg-open .build/site/index.html     # Linux
+start .build/site/index.html        # Windows
+----
+
+=== Editor
+
+Recommended *Visual Studio Code* with the following extension:
+
+* AsciiDoc support for Visual Studio Code, by asciidoctor | asciidoctor.org
+* Spelling Checker for Visual Studio Code, by Street Side Software | streetsidesoftware.com
+
+== Becoming a contributor
+
+Before contributing to a repository you need to have a GitHub account at https://github.com/. Our repository is managed by maintainers who as listed as *Contributors*. However, you do not have to be a contributor to add, change, and comment on the publications. If you want to participate simply *Fork* the repository and follow the process outlines in the next sections.
+
+== GitHub contribution procedure
+
+The document organization allows multiply contributors to work on different guides at the same time. Always coordinate with the contributor team when planning to work on a new guide or edit and existing one.
+
+Always create a branch when adding new content or updating an existing one.
+
+Generally, for minor edits and fixes, if someone is already working on a guide, submit these as bugs for the appropriate branch and then make sure these are appropriately closed before a merge to the `main` branch for publication.
+
+There are many resources for learning how to use Git. Review these materials and seek help from fellow contributors before attempting to make any changes. Review this short video that demonstrates the https://www.youtube.com/watch?v=MnUd31TvBoU&t=80s[collaboration process with Git.^]
+
+Once you are added as a contributor, accept the invitation and start by cloning the git repository:
+
+=== Getting started
+
+Whether you are a maintainer *Contributor* or if you have *Forked* the repository you will first need a local copy on your workstation.
+
+[source,shell]
+----
+git clone <repo-url>
+----
+
+Next add a `.gitignore` file to the root directory of the repository and include the following text in that file:
+
+----
+# Ignore for documentation repository
+.*
+----
+
+Once the GitHub repository is cloned to your local workstation you can start working on it and contributing to the repository.
+
+=== Making sure you have the latest copy
+
+It is best practice to always refresh your `main` branch before starting your work on your branch and before creating one to start a new or update project.
+
+[source,shell]
+----
+git checkout main
+git pull origin main
+----
+
+=== New branch
+
+When starting a project for a new guide or for updating and existing guide, always create a branch and name it in a way that makes it clear what you are doing. For example `new-fusion-rdr` or `fix-fusion-hcp`. You will do this only once when starting a project.
+
+[source,shell]
+----
+git checkout -b <feature-branch>
+----
+
+=== Work process
+
+While working on your new guide or fixes to an existing guide you will loop through the following steps:
+
+. Refresh your `main` branch as described above.
+. Check out your work branch with `git checkout <feature-branch>` (notice there is on `-b` switch as you are checking out and *not* creating).
+. Make your edits and additions.
+. Use `git add ...` and `git commit ...` to add new content and then commit the new or modified content.
+. Push the branch to the repository. This will save it there and make it visible to others who may review and comment on it. Push your content with `git push origin <feature-branch>` (note: in first time branch push include a `-u` switch).
+. When you are done and satisfied with your end product, and no outstanding issues are open against it, finalize your last `commit` and `push` and issue a *Pull Request*
+
+=== Pull Request "guide review"
+
+A *Pull Request* notifies the repository owner that you wish to merge your content into the main branch. We will conduct a last review and once that is completed without issues the content will be pulled and merged into the main branch.
+
+Content will be merged after two contributors that did not author the material have reviewed the new or updated guide.
+
+=== Fork
+
+You can use a repository Fork to contribute to our project. On GitHub, a fork is a personal, independent copy of another repository under your own account, and you can create two main types based on what branches you choose to copy:
+
+* *Default-branch-only fork*: Copies only the main or default branch (faster and best for simple open-source contributions).
+* *All-branches fork*: Copies every branch and commit history from the original repository.
+
+How can you contribute when using a Fork on GitHub. You can:
+
+* *Contact a contributor maintainer* to discuss how and where you can help with your contribution.
+* *Fork the main branch*: This will give you a copy of the main documentation branch.
+* *Follow the previous section* to create an edit branch and work on your lab and documentation edits.
+* *Propose Changes (Pull Requests)*: Experiment safely in your copy, make edits, and send a pull request back to the original ("upstream") project.
+* *Customize and Experiment*: Change, add new material, or break things without affecting the original codebase.
+* *Sync Updates*: Pull new changes from the original project into your fork to keep it up to date.
+* *Detach Your Fork*: You can also convert your forked repository into a completely standalone, independent repository on GitHub if you no longer want it linked to the original. This will disable your ability to collaborate and contribute to out project.

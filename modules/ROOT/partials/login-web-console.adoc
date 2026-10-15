@@ -1,0 +1,9 @@
+1. In your web browser, navigate to the **OpenShift Web Console URL** provided in your TechZone reservation details.
+2. On the login screen, select **kube:admin**.
++
+[TIP]
+====
+Always select **kube:admin** rather than IBMid to ensure you log in with full `cluster-admin` privileges needed to administer Fusion.
+====
+3. Enter the `kubeadmin` username and the **Cluster Admin Password** from your reservation.
+4. After logging in, the OpenShift Web Console dashboard is displayed.

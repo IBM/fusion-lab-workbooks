@@ -1,0 +1,259 @@
+= Regional Disaster Recovery (RDR): Environment Preparation & Setup
+:navtitle: Environment Preparation
+
+== Introduction
+
+Implementing **Regional Disaster Recovery (RDR)** with IBM Fusion and Red Hat Advanced Cluster Management (ACM) requires two distinct OpenShift clusters deployed across separate network subnets, connected via Submariner, with all default TechZone ACM management disconnected.
+
+== Reserving Two TechZone Environments (OCP-V)
+
+Regional DR requires two independent clusters provisioned on IBM Technology Zone (TechZone) using the **IBM Fusion on OpenShift Virtualization** environment.
+
+Follow the reservation workflow outlined in the xref:getting-started/tz-quick-start.adoc#_provisioning_a_lab[TechZone Quick Start Guide], paying close attention to the **Configuration** step where network settings must be customized.
+
+=== Cluster 1: Primary (`local-cluster`)
+
+When reserving the primary cluster:
+
+1. **Environment Tile:** Select *IBM Fusion on OpenShift Virtualization*.
+2. **Name:** `local-cluster`.
+3. **Purpose & Deployment:** Set your intended business purpose and preferred geography.
+4. **Configuration (Network Defaults):** Keep the primary cluster on the default network assignments:
+   * **VM Network CIDR:** `10.10.10.0/24` (default)
+   * **OCP/Kubernetes Cluster Network:** `10.128.0.0/14` (default)
+   * **OCP/Kubernetes Service Network:** `172.30.0.0/16` (default)
+
+=== Cluster 2: Secondary / DR Site (`ocp2`)
+
+[IMPORTANT]
+====
+**Non-Overlapping Subnets Required for Submariner:** Submariner cross-cluster networking requires that the VM Network CIDR, OCP/Kubernetes Cluster Network, and OCP/Kubernetes Service Network do not overlap between the two clusters.
+====
+
+When reserving the secondary cluster, click btn:[Customize] on the **Configuration** step and modify the network dropdowns:
+
+* **Name:** `ocp2`
+* **VM Network CIDR:** Select an alternate subnet by incrementing the 3rd octet (`10.10.11.0/24`, `10.10.12.0/24`, or `10.10.13.0/24`).
+* **OCP/Kubernetes Cluster Network:** Select one of the alternate options: `10.140.0.0/14`, `10.144.0.0/14`, or `10.152.0.0/14`.
+* **OCP/Kubernetes Service Network:** Select one of the alternate options: `172.33.0.0/16`, `172.34.0.0/16`, or `172.35.0.0/16`.
+
+=== Network Subnet Comparison Matrix (OCP-V)
+
+[cols="1,2,2",options="header"]
+|===
+| Network Parameter | Primary Cluster (`local-cluster`) [Defaults] | Secondary Cluster (`ocp2`) Selection Options
+| **VM Network CIDR** | `10.10.10.0/24` | `10.10.11.0/24`, `10.10.12.0/24`, or `10.10.13.0/24`
+| **OCP/Kubernetes Cluster Network** | `10.128.0.0/14` | `10.140.0.0/14`, `10.144.0.0/14`, or `10.152.0.0/14`
+| **OCP/Kubernetes Service Network** | `172.30.0.0/16` | `172.33.0.0/16`, `172.34.0.0/16`, or `172.35.0.0/16`
+|===
+
+== Disconnecting TechZone ACM
+
+TechZone automatically attaches reserved OpenShift clusters to a central TechZone ACM management hub. Because you will be deploying your own ACM instance on `local-cluster`, you must disable TechZone ACM auto-import and clean up the existing klusterlet agents.
+
+[IMPORTANT]
+====
+These steps need to be completed prior to adding any additional services as the cleanup script will remove some artifacts needed by them.
+====
+
+=== Step 1: Disable TechZone ACM Auto-Import
+
+1. In the TechZone reservation page, open the **VM Remote Console** for both reservations (`local-cluster` and `ocp2`).
+2. Under **Cluster management**, click btn:[Techzone ACM].
+3. Toggle the **ACM Auto-Import** switch to **Disabled**.
+4. Allow 15–30 minutes for TechZone to reconcile and detach the cluster.
+
+=== Step 2: Remove TechZone ACM Klusterlet
+
+On **both clusters** (`local-cluster` and `ocp2`), log in to the Bastion host as `root` (`sudo -i`) and execute the cleanup script:
+
+Run cleanup script to remove TechZone ACM artifacts
+[source,shell]
+----
+bash <(curl -s https://itz-ocpv-downloads.s3.us-east.cloud-object-storage.appdomain.cloud/scripts/cleanup-managed-cluster.sh)
+----
+Verify that the klusterlet CR is removed
+[source,shell]
+----
+oc get klusterlet
+----
+
+Ensure the command returns `No resources found`.
+
+== RDR Lab Prerequisites
+
+The following steps must be completed on **both** clusters (`local-cluster` and `ocp2`) before configuring RHACM. Each step is identical on both clusters — you are running the same Fusion install and FDF setup on two separate TechZone reservations. To save time, run them in parallel on each cluster.
+
+=== Install the IBM Fusion Operator
+
+IBM Fusion has not yet been installed on your provisioned TechZone OpenShift environments. Follow the steps in xref:fusion-foundations/install.adoc[IBM Fusion Operator Installation & Console Overview] to install the operator and accept the license agreement on both clusters.
+
+=== Install Fusion Data Foundation
+
+Install and configure FDF in **Local** mode on both clusters, following xref:fusion-foundations/storage-fdf.adoc[Configuring Fusion Data Foundation (FDF)].
+
+=== Install OpenShift Application Data Protection (OADP)
+
+OADP is required on both clusters to back up and restore Kubernetes objects alongside FDF volume replication during failover and relocation.
+
+1. In the OpenShift Web Console, navigate to menu:Ecosystem[Software Catalog].
+2. Search for `OADP` and select the **OADP Operator** tile.
+3. Click btn:[Install], keep all default settings, and click btn:[Install].
+4. Wait for the operator status to show **Succeeded** under menu:Ecosystem[Installed Operators].
+
+*Verify from the CLI:*
+
+[source,shell]
+----
+oc get csv -n openshift-adp | grep oadp
+----
+
+The `PHASE` column should show `Succeeded` on both clusters before continuing.
+
+[start=5]
+. Click the Quick create icon (the `+` icon in the masthead) and select **Import YAML**.
+. Copy the following YAML, paste it into the editor, and click btn:[Create]:
++
+[source,yaml]
+----
+include::example$DataProtectionApplication.yaml[]
+----
+. A `DataProtectionApplication` resource is created in the `openshift-adp` project on each cluster.
+
+Perform all prerequisite steps on **both clusters** before continuing.
+
+== Preparing Submariner Cross-Cluster Gateways
+
+Submariner establishes secure cross-cluster pod-to-pod networking and requires one node in each cluster designated as the gateway.
+
+[IMPORTANT]
+====
+The TechZone environment forwards Submariner traffic exclusively through `itz-++*++-worker-1`. You must label `itz-++*++-worker-1` on both clusters — using any other worker node will cause Submariner to fail to establish a connection.
+====
+
+=== Step 1: Label Gateway Nodes on Both Clusters
+
+Run the following command on **both `local-cluster` and `ocp2`**:
+
+Label `itz-++*++-worker-1` as the Submariner gateway node
+
+[source,shell]
+----
+oc get node | grep "worker-1 " | cut -d " " -f1 | xargs -I {} oc label node {} submariner.io/gateway=true
+----
+
+=== Step 2: Annotate Primary Gateway (Run on `local-cluster` only)
+
+Retrieve your hub API hostname, resolve its public IP, and annotate `itz-++*++-worker-1`:
+
+Resolve API server public IP
+
+[source,shell]
+----
+oc whoami --show-server | cut -d "/" -f3 | cut -d ":" -f1 | xargs -I {} nslookup {} 1.1.1.1
+----
+
+Annotate `itz-++*++-worker-1` with preferred server and public IP. Replace `<resolved-public-ip>` below with Address discovered above.
+
+[source,shell]
+----
+oc get node | grep "worker-1 " | cut -d " " -f1 | xargs -I {} oc annotate node {} \
+  gateway.submariner.io/preferred-server=true \
+  gateway.submariner.io/public-ip=ipv4:<resolved-public-ip>
+----
+
+== Configuring RHACM
+
+The following steps are performed on `local-cluster` only.
+
+=== Install Red Hat Advanced Cluster Management
+
+1. In the OpenShift Web Console of `local-cluster`, navigate to menu:Ecosystem[Software Catalog].
+2. Search for `Advanced Cluster Management for Kubernetes` and select the operator tile.
+3. Click btn:[Install], keep all default settings, and click btn:[Install].
+4. Wait for the btn:[Create MulticlusterHub] button to become active, then click it.
+5. Keep all default settings and click btn:[Create].
+6. The `multiclusterhub` status will progress through `Phase: Installing` to `Phase: ✅ Running`. 
+7. After the console reloads, the **Fleet Management** interface is available via menu:Core Platform[Fleet Management].
+
+=== Install Red Hat OpenShift GitOps
+
+Red Hat OpenShift GitOps is required prior to installing the Multicluster Orchestrator.
+
+1. In the OpenShift Web Console of `local-cluster`, navigate to menu:Ecosystem[Software Catalog].
+2. Search for `Red Hat OpenShift GitOps` and select the operator tile.
+3. Click btn:[Install], accept all default settings, and click btn:[Install].
+4. Wait for the operator status to display **Succeeded** under menu:Ecosystem[Installed Operators].
+
+=== Install Multicluster Orchestrator
+
+The Multicluster Orchestrator provides the FDF DR Hub Operator and enables the Disaster Recovery policy interface in RHACM.
+
+1. Navigate to menu:Ecosystem[Software Catalog].
+2. Search for `Multicluster Orchestrator` and select the operator tile `Provided by IBM`.
+3. Click btn:[Install].
+4. Under the **Console plugin** section, click btn:[Enable], then scroll down and click btn:[Install].
+5. When the **Web console update is available** popup appears, click **Refresh web console**.
+
+=== Import the Secondary Cluster (`ocp2`)
+
+1. Download the kubeconfig for `ocp2` from its TechZone reservation page (btn:[Download kubeconfig]). Rename the file to `ocp2_kubeconfig.conf`.
+2. Open the file in a text editor and copy all of its contents.
+3. In the `local-cluster` OpenShift Web Console, navigate to menu:Core Platform[Fleet Management] and click **All Clusters**.
+4. Click btn:[Import cluster] (or btn:[Import an existing cluster] from the getting started popup).
+5. Enter `ocp2` in the **Name** field and set **Cluster set** to `default`.
+6. From the **Import mode** dropdown, select **Kubeconfig**.
+7. Paste the contents of `ocp2_kubeconfig.conf` into the **Kubeconfig** field and click btn:[Next].
+8. Click btn:[Next] through any remaining steps, then click btn:[Import].
+9. Wait for the cluster status to show **Ready** with a green checkmark.
+
+=== Install Submariner Add-ons
+
+1. In Fleet Management, navigate to menu:Infrastructure[Clusters] and select the **Cluster sets** tab.
+2. Click the **default** cluster set to open its overview.
+3. Select the **Submariner add-ons** tab and click btn:[Install Submariner add-ons].
+4. In the **Target clusters** selection box, select both `local-cluster` and `ocp2`, then click btn:[Next].
+5. Click btn:[Install].
+6. When running OVN-Kubernetes in local gateway mode, apply the health-check workaround on **both clusters** after installing the Submariner add-on:
++
+[source,shell]
+----
+oc apply -f https://itz-ocpv-downloads.s3.us-east.cloud-object-storage.appdomain.cloud/scripts/submariner-ovn-snat-workaround.yaml
+----
++
+Verify DaemonSet status:
++
+[source,shell]
+----
+oc get ds -n submariner-operator submariner-ovn-snat-fix
+----
+7. In the **Submariner add-ons** table, verify that both `local-cluster` and `ocp2` display:
+   * **Connection status:** `Healthy`
+   * **Agent status:** `Healthy`
+   * **Gateway nodes labeled:** `Nodes labeled`
+
+[NOTE]
+====
+The connection status may briefly show **Degraded** while cross-cluster tunnels are being established. Allow a few minutes for the status to turn **Healthy**.
+====
+
+=== Create a Disaster Recovery Policy
+
+1. In Fleet Management, navigate to menu:Data Services[Disaster Recovery].
+2. Click btn:[Create a disaster recovery policy].
+3. Enter `ocp1-ocp2-dr` in the **Policy name** field.
+4. In **Connect clusters**, check both `local-cluster` and `ocp2`.
+5. *(Optional)* If Virtual Machines will be tested with RDR, click **Advanced Settings** and select **Enable disaster recovery support for restored and cloned PersistentVolumeClaims (For Data Foundation only)**.
+6. Click btn:[Create].
+7. Wait for the policy status to update from **Not validated** to **Validated**.
+
+*Verify the DR policy is validated from the CLI (run on `local-cluster`):*
+
+[source,shell]
+----
+oc get drpolicy ocp1-ocp2-dr
+----
+
+The `VALIDATED` column should show `True` before proceeding to the failover lab.
+
+include::partial$nav-rdr-getting-started.adoc[]

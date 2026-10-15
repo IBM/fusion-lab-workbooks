@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:getting-started/tz-quick-start.adoc[← TechZone Quick Start]
+| xref:fusion-foundations/demo-guide.adoc[General Demo Guide →]
+|===

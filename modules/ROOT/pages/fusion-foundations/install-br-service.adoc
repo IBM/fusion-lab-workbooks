@@ -1,0 +1,68 @@
+= Installing the Backup & Restore Service
+:navtitle: Install Backup & Restore Service
+
+== Introduction
+
+The IBM Fusion Backup & Restore service is an optional capability that must be explicitly installed from the Fusion Services catalog.
+This page walks through applying a required hotfix, installing the service from the Fusion console, and verifying that all service pods are healthy before you proceed to configure backup locations and policies.
+
+include::partial$prereqs-techzone.adoc[]
+
+== Required Hotfix
+
+include::partial$hotfix-minio-idms.adoc[]
+
+== Installing the Backup & Restore Service
+
+=== Install via IBM Fusion Console
+
+1. Open the IBM Fusion console (menu:Application Menu[IBM Storage Fusion] from the OpenShift masthead).
+2. In the left navigation, click **Services**.
+3. Locate the **Backup & Restore** tile and click btn:[Install].
+4. Review the installation options — leave all defaults — and click btn:[Install] to confirm.
+5. The tile status changes to **Installing**. Wait until it shows **Installed**.
++
+[NOTE]
+====
+Installation typically takes 5–10 minutes. You can monitor pod startup in real time with the CLI command in the next section.
+====
+
+=== Verify Installation via CLI
+
+Monitor pod readiness in the `ibm-spectrum-fusion-ns` namespace:
+
+[source,shell]
+----
+oc get pods -n ibm-spectrum-fusion-ns -w | grep -E 'guardian|minio|transaction'
+----
+
+Wait until all `guardian-*`, `guardian-minio-*`, and `transaction-manager-*` pods show `Running` with all containers ready (e.g. `1/1` or `2/2`).
+
+To get a quick summary of any pods that are not yet running:
+
+[source,shell]
+----
+oc get pods -n ibm-spectrum-fusion-ns --field-selector=status.phase!=Running | grep -E 'guardian|minio|transaction'
+----
+
+An empty result confirms all relevant pods are running.
+
+== Confirming Topology Connectivity
+
+After installation, Backup & Restore registers the local cluster as a **Hub** node in its topology.
+
+=== Verify via IBM Fusion Console
+
+1. In the Fusion console, navigate to menu:Backup & restore[Topology].
+2. Confirm the cluster tile shows a status of **Connected**.
+
+=== Verify via CLI
+
+[source,shell]
+----
+oc get spectrumfusionbackup -n ibm-spectrum-fusion-ns
+----
+
+The `STATUS` column should show `Ready`.
+
+include::partial$nav-fusion-install-br-service.adoc[]

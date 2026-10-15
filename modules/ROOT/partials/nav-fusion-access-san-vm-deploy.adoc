@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:fusion-access-san/deploy.adoc[← Deploy Fusion Access for SAN]
+| xref:fusion-access-san/benchmark.adoc[Benchmarking →]
+|===

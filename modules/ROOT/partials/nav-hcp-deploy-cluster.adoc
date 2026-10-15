@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:hcp/overview.adoc[← HCP Architecture]
+|
+|===

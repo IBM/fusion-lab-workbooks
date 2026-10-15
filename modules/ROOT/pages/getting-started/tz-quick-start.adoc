@@ -1,0 +1,152 @@
+
+= IBM Fusion: TechZone Quick Start
+:navtitle: Quick Start
+
+== Introduction
+
+IBM Technology Zone (TechZone) is the single destination for our go-to-market teams and IBM business partners ecosystem to access on-demand and live environments to learn, build, show, and share the value of IBM solutions. Additionally, they can extend our certified base images and further customize them for test, education, demonstration, and pilot activities.
+
+This lab guide is a Quick Start for all Fusion labs on TechZone. The lab guide will explain how to find Fusion content, as well as how to reserve and use the Fusion related lab instances. Lab exercises and specific preparation steps are detailed in the respective lab guides by topic of interest.
+
+This guide can be used to bring a TechZone instance to a general starting point. From this starting point you may continue to the relevant lab guide document or, if you wish, create your own specific configuration for a user defined test or demo.
+
+All TechZone instances for Fusion are based on configurable OpenShift clusters with a virtual machine (VM) node infrastructure deployed on OpenShift Virtualization (OCP-Virt) technology. The underlying VMs have nested virtualization enabled so that they can host a second level VM for demonstrating technologies such as OCP-Virt and Hosted Control Planes (HCP aka, "Control Tower").
+
+== Product disclaimer
+
+IBM Fusion is being developed and released in an agile manner. In addition to adding new capabilities, the interface is likely to change over time. Therefore, the screenshots used in this document and other lab guides may not always look exactly like what you see in the product. Depending timing, you can expect to encounter some of the following:
+
+* Changes in the user interface (UI), such as the location of buttons or text in various fields
+* Additional tabs or buttons
+
+These differences should not affect how the lab exercises work. When changes are observed, have patience and explore.
+
+You will need an IBM account and corresponding IBMid to gain access to IBM Technology Zone.
+
+=== Getting help
+
+If you require assistance in interpreting any of the steps in this demo, please post your questions to the ++#++storage++_++demo++_++feedback https://ibm.enterprise.slack.com/archives/C06KQ49RJBF[Slack channel for IBMers only]. Business Partners can request help at the https://www.ibm.com/partnerplus/support[Partner Plus Support^] website.
+
+If you have an issue with TechZone or want to open a support case go to the https://techzone.ibm.com/help[IBM Technology Zone Help^]. Alternatively, you can send an email to techzone.help@ibm.com. This contact information is also provided in the emails that you receive from IBM Technology Zone.
+
+For help with the Fusion product see the https://www.ibm.com/docs/en/storage-fusion-software[Fusion documentation^].
+
+=== Prerequisites & getting started
+
+You *[.underline]#must#* be familiar with the Linux operating system, as well as know how to use the command line interface to execute basic Linux commands such as *kubectl*, *oc*, *exit*, *ls*, *mkdir*, *ssh*, *sudo*, and *curl* (to name few). Ideally, you should also have some experience working with the Red Hat OpenShift Graphical User Interface (GUI) and executing Red Hat OpenShift Container Platform and Kubernetes command line interface (CLI) commands. If you need experience using Linux, Kubernetes and Red Hat OpenShift Container Platform, it is highly recommended that you complete the following Red Hat courses _before_ you attempt to work through the exercises in this lab.
+
+Red Hat Courses:
+
+* https://training-lms.redhat.com/sso/saml/auth/rhopen?RelayState=deeplinkoffering%3D43022363[DO080 Containers Kubernetes and Red Hat OpenShift Technical Overview^]
+* https://training-lms.redhat.com/sso/saml/auth/rhopen?RelayState=deeplinkoffering%3D46190289[Red Hat OpenShift: Technical Overview^]
+
+NOTE: Red Hat Partner Connect Training access required.
+
+When instructions are given to enter text, the text is usually shown in mono space font `this is an example`. This is to help indicate that you need to type or copy/paste all the text as is.
+
+== IBM Fusion on TechZone
+
+IBM TechZone can be found at this URL https://techzone.ibm.com/. To access IBM TechZone you must have an IBM ID which you can obtain from your IBM representative as a client, Business Partner or employee.
+
+Once you are logged in to IBM TechZone head over to the https://techzone.ibm.com/collection/678ad5bf6b6b9f642a304218[IBM Fusion Collection^] and explore the https://techzone.ibm.com/collection/ibm-spectrum-fusion/environments[Environement^] and https://techzone.ibm.com/collection/ibm-spectrum-fusion/resources[Resources^].
+
+Bookmark these pages for future use or mark them as Favorites by clicking the heart-shaped icon on the page.
+
+=== Resources
+
+The resource page includes links to the available lab guides. These guides are available in PDF format and over time will be also available as on-line viewable material. Due to the rapid development cycles of some products, the guides may not always reflect the latest UI changes and you can expect to encounter some differences. These differences should not affect how the lab exercises work; be patience and explore to enhance your learning.
+
+The lab guides are typically a step by step procedure to performing and learning a set of features and product capabilities. Feel free to explore and experiment! 
+
+image::tz-fusion-collection-resources.png[Fusion resources, link=self]
+
+=== Environments
+
+The environments page includes links to available lab resources that you can request for your project. Once your request is provisioned and ready, you will be able to use these resources for your own education, experimentation, and client demos.
+
+The environment that is provisioned for you is an OpenShift (OCP) cluster consisting of your choice of components with some extra resources such as a Bastion node and an IBM Storage Scale node. You can use these for the guided labs or use them as a blank slate for your own explorations.
+
+The next sections will walk you through a provisioning and basic use of an OCP cluster on TechZone.
+
+image::tz-fusion-collection-environments.png[Fusion environments, link=self]
+
+== Provisioning a lab
+
+Begin your reservation process by logging in to TechZone and navigating the the https://techzone.ibm.com/collection/ibm-spectrum-fusion/environments[Fusion Environments page^].
+
+The environments page lists the environment types you can provision and gain access to for your project.
+
+Select the environment titled *Beta: IBM Fusion on OpenShift Virtualization* by clicking btn:[Reserve] at the bottom of the tile. This will start a provisioning wizard that will walk you through the provisioning process:
+
+*1. General*
+
+Name your environment with a descriptive name that will help you identify the setup. This name will be visible to all authorized users, including team members, stakeholders, and clients.
+
+Enter a free text description of the environment. Anyone you share this request with will see this description when getting access. Include relevant details to help them understand the purpose and expectations.
+
+*2. Business purpose*
+
+Describe the usage intent, including the context and purpose behind the request. This information helps the TechZone understand the business need and ensure the request is appropriately supported and prioritized.
+
+By choosing a Purpose tile you can indicate the intended use. Each selection has a different reservation time schedule and different requirements for providing an ISC record reference. If you need to provide an ISC record reference simply copy and paste the 18-character Opportunity Number and make sure that the product list in the opportunity include the product name of the lab you are reserving; in our case Fusion.
+
+*3. Deployment*
+
+TechZone resource reservations rely on IBM Cloud. Choose a location closest to where the session will be hosted (if in person) to optimize performance. While this preference will be considered, deployment to the selected geography is subject to resource availability and cannot be guaranteed.
+
+*4. Scheduling*
+
+The scheduling page gives you the ability the set the preferred reservation date range within the Policy period determined by your intended use selection you made in the Business purpose page. Provide details on scheduling requirements and the planned dates for the intended request.
+
+IMPORTANT: Do not finalize dates with clients until the request is approved or until the resources are fully deployed and ready. Always reserve a few days in advance of any meetings or demos.
+
+*5. Configuration*
+
+Enter clear and detailed configuration choices for the environment request. You can choose to keep the defaults as displayed, or tailor the setup to your needs by clicking btn:[Customize] and then modifying the environment attributes and then clicking btn:[Save].
+
+*6. Review and submit*
+
+Review the details on this pager before submitting your reservation request. This final step ensures that all required information is accurate and that you are aware of the responsibilities associated with the use of IBM TechZone resources.
+
+You can go back and change reservation inputs by clicking the btn:[Edit] links on the page or the btn:[Back] button to step backwards in the wizard.
+
+Any wizard step with a blue checkmark icon next to it is properly entered, and any red exclamation point icon should be revisited and corrected before submission.
+
+Once you submit your request the system automatically start a background process to reserve the resources needed for configuring the OpenShift cluster and other resources.
+
+You can track the reservation requests and their status on the https://techzone.ibm.com/my/requests[My requests^] page. This page also has a display and sort filter that you can use the manage what you see on the page.
+
+TIP: Clear the filter or add the selection of Failed reservations so that you will be able to track reservations that failed to provision properly. This will prevent them from "disappearing" from your view.
+
+You will receive emails from IBM Technology Zone <noreply@techzone.ibm.com> indicating the status of your reservation. The status may indicate a reservation failure or success, and over the duration of use you may also receive reminders for imminent expiration or confirmation of your initiated deletion.
+
+If you receive and expiration notice and you have a date extension option, then follow up and extend your reservation in order to keep using it without disruption.
+
+*My reservation failed, what to do?*
+
+Reservations may fail from time to time. This depends of many factors including current workloads and available resources. Always reserve in advance of any meetings or demos! if a reservation fails redo the reservation entry using the reservation wizard and described in this section.
+
+== Managing a lab
+
+Once an environment reservation is successful you can start using it. If you are a first time then follow the steps below to get started.
+
+=== Gather up some details
+
+Start on the https://techzone.ibm.com/my/requests[My requests^] page, locate the reservation you want to use, and make sure it is in the green "Reservation - Ready" state.
+
+Open the reservation page by clicking btn:[Open this reservation] on the reservation tile (or the blue "eye" icon if you are in a list view instead of a tiled view.) Now expand the environment view by clicking the down-pointing arrow next to you environment name.
+
+image::tz-fusion-reservation.png[Reservation page, link=self]
+
+Before you continue we advise your to collects the various parameters of your environment such as passwords and access key file into a folder on your local desktop system. Create a folder which will be your work folder and collect the following artifacts into it:
+
+* Download the kubeconfig file and save it
+* Download the private SSH key and save it
+* Create a text file and save the following parameters to it:
+** 24-character environment ID 
+** Bastion user `itzuser` and the password from the hidden field
+** OCP cluster user `kubeadmin` and the password from the hidden field
+
+For detailed instructions on connecting to the Web Console, SSH-ing to the Bastion, installing `oc` locally, and VM IP address references, see xref:getting-started/access.adoc[Accessing the Environment].
+
+include::partial$nav-tz-quick-start.adoc[]

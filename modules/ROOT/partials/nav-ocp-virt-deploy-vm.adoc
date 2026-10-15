@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:ocp-virt/install.adoc[← Install OCP-Virt]
+| xref:ocp-virt/migrate-vm.adoc[VM Migration (MTV) →]
+|===

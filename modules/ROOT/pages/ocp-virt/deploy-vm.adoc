@@ -1,0 +1,148 @@
+= Deploying, Managing & Migrating Virtual Machines
+:navtitle: Deploy & Manage VMs
+
+== Introduction
+
+In this lab you will deploy both a Linux and a Windows virtual machine backed by IBM Fusion Data Foundation storage, connect to them using the web console and `virtctl`, and perform a live migration between worker nodes.
+
+include::partial$prereqs-techzone.adoc[]
+
+[NOTE]
+====
+This lab assumes the `vmlab` project and the `bastion-ssh` SSH key secret have been created in xref:ocp-virt/install.adoc[Install OCP-Virt]. Verify before proceeding.
+====
+
+== Create a Linux Virtual Machine
+
+1. Navigate to menu:Virtualization[Catalog].
+2. Verify the project is set to `vmlab`.
+3. Click the **Template catalog** tab.
+4. Check the **RHEL** checkbox under the Operating system filter. Click the **Red Hat Enterprise Linux 9 VM** tile.
+5. Enter `rhel9-vmlab` in the **VirtualMachine name** field.
+6. Confirm that the `bastion-ssh` SSH key is shown in the configuration summary.
+7. Click btn:[Quick create VirtualMachine].
+8. Wait for the VM status to reach **Running** (approximately 2 minutes).
+
+*Verify from the CLI:*
+
+TIP: Make sure your `KUBECONFIG` environment variable points to $HOME/kubeconfig and you are logged in the Red Hat OpenShift cluster. If not, run the following command:
+
+[source, shell]
+----
+export KUBECONFIG="/home/itzuser/kubeconfig"
+----
+
+Verify your virtual machine is running.
+ 
+[source,shell]
+----
+oc get vm rhel9-vmlab -n vmlab
+----
+
+The `STATUS` column should show `Running` before proceeding.
+
+== Connect to the VM
+
+=== Web Console (VNC / Serial)
+
+1. From the **VirtualMachines** list, click `rhel9-vmlab`.
+2. Click the **Console** tab or the **Open web console** link.
+3. The **Guest login credentials** panel can be expanded in the upper-left corner. Use the copy buttons to paste the credentials.
+4. To switch to a serial console, open the **Console type** drop-down and select **Serial console**.
+
+=== CLI via `virtctl` SSH
+
+1. On the `rhel9-vmlab` VM details page, click the **Actions** drop-down and select **Copy SSH command (SSH using virtctl)**.
+2. SSH to the Bastion host.
+3. Paste the command and replace `<path_to_sshkey>` with the actual key path:
++
+[source,shell]
+----
+virtctl -n vmlab ssh cloud-user@vm/rhel9-vmlab \
+  --identity-file=/home/itzuser/.ssh/id_rsa
+----
+4. Enter `yes` when prompted to accept the host fingerprint.
+
+[NOTE]
+====
+If you see `dial tcp [::1]:8080: connect: connection refused`, you are not logged in to the cluster. Run `oc login` on the Bastion first.
+====
+
+== Live Migration Between Worker Nodes
+
+Live migration moves a running VM between worker nodes with zero downtime.
+
+=== Option 1: From the OpenShift Web Console
+
+1. On the `rhel9-vmlab` overview page, note the current **Node** in the General section.
+2. Click the **Actions** drop-down and select **Migrate (Migrate to a different Node)**.
+3. Observe the status transition: `Running` → `Migrating` → `Running` on a different node.
+
+=== Option 2: From the CLI
+
+Apply a `VirtualMachineInstanceMigration` CR to trigger the migration:
+
+[source,yaml]
+----
+cat <<'EOF' | oc apply -f -
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstanceMigration
+metadata:
+  name: migration-job
+  namespace: vmlab
+  labels:
+    kubevirt.io/vmi-name: rhel9-vmlab
+spec:
+  vmiName: rhel9-vmlab
+EOF
+----
+
+=== Verify the Migration
+
+*From the OpenShift Web Console:* On the VM details page, confirm the **Node** field in the General section has changed to a different worker node.
+
+*From the CLI:* Watch the migration CR until `Phase` shows `Succeeded` using the command below.
+
+[source,shell]
+----
+oc get vm -n vmlab -w
+----
+
+== Create a Windows Server 2022 Virtual Machine
+
+A pre-built Windows 2022 Server evaluation disk image (qcow2) is used for this exercise.
+
+1. Navigate to menu:Virtualization[Catalog] and verify the project is `vmlab`.
+2. Click the **Template catalog** tab, then check **Windows** under Operating system filter.
+3. Click the **Microsoft Windows Server 2022 VM** tile.
+4. Open the **Disk source** drop-down and select **URL (creates PVC)**.
+5. Enter the disk image URL in the **Image URL** field:
++
+----
+https://ibm.box.com/shared/static/icizg1yn0mx6weeld8xdt91fbesnezbv.qcow2
+----
+6. Set the virtual machine name field as `win2k22-vmlab`
+7. Click btn:[Quick create VirtualMachine].
+8. Wait for the status to reach **Running** (5–10 minutes — the image downloads and Windows boots).
+
+*Verify from the CLI:*
+
+[source,shell]
+----
+oc get vm win2k22-vmlab -n vmlab
+----
+
+The `STATUS` column should show `Running` before proceeding.
+
+=== Install Guest Agent & virtio-win Drivers
+
+Windows VMs require the `virtio-win` guest agent to report guest OS details and IP addresses to OpenShift.
+
+1. Click **Open new console** on the VM details page.
+2. Use **Send key → Ctrl + Alt + Delete**, then log in with password `Passw0rd` as Administrator.
+3. Open **File Explorer → CD Drive (D:) virtio-win** and double-click `virtio-win-guest-tools`.
+4. Accept the license, click btn:[Install], then btn:[Next] through all steps, and finish.
+5. Return to the VM details page — the **Operating system** and **Hostname** fields will now be populated by the guest agent.
+
+include::partial$nav-ocp-virt-deploy-vm.adoc[]

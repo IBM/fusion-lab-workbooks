@@ -1,0 +1,764 @@
+= IBM Fusion Lab Guides - Antora Viewer Deployment Guide
+:toc: left
+:toclevels: 3
+:icons: font
+:source-highlighter: highlight.js
+:experimental:
+
+== Overview
+
+This document provides comprehensive deployment instructions for the IBM Fusion Lab Guides application using Antora Viewer. The application generates and serves static documentation from AsciiDoc source files using the Antora documentation framework.
+
+== Architecture
+
+=== Component Overview
+
+The application consists of the following components:
+
+[NOTE]
+====
+Two deployment variants are available:
+- **With PVC** (`openshift-deployment.yaml`): Uses persistent storage, requires StorageClass
+- **Without PVC** (`openshift-deployment-no-pvc.yaml`): Uses emptyDir, no StorageClass required
+====
+
+[mermaid]
+----
+graph TB
+    subgraph "OpenShift Cluster"
+        subgraph "techzone-lab Namespace"
+            Route[Route<br/>TLS Edge Termination]
+            Service[Service<br/>ClusterIP:8080]
+            Pod[Pod: antora-viewer]
+            
+            subgraph "Pod Components"
+                InitContainer[Init Container<br/>git-clone<br/>UBI9 Minimal]
+                Container[Container<br/>antora-viewer<br/>Port 8080]
+            end
+            
+            Storage[Storage<br/>PVC 2Gi OR emptyDir 2Gi]
+            ConfigMap[ConfigMap<br/>antora-playbook]
+        end
+    end
+    
+    GitHub[GitHub Repository<br/>fusion-lab-guides]
+    User[User Browser]
+    
+    User -->|HTTPS| Route
+    Route -->|HTTP| Service
+    Service -->|HTTP| Container
+    Container -->|Mount| Storage
+    Container -->|Mount| ConfigMap
+    InitContainer -->|Clone/Pull| GitHub
+    InitContainer -->|Write| Storage
+    
+    style Route fill:#e1f5ff
+    style Service fill:#e1f5ff
+    style Pod fill:#fff4e1
+    style Storage fill:#f0f0f0
+    style ConfigMap fill:#f0f0f0
+    style GitHub fill:#e8f5e9
+    style User fill:#fce4ec
+----
+
+=== Component Descriptions
+
+==== Namespace
+* *Name*: `techzone-lab`
+* *Purpose*: Isolated environment for the Antora Viewer application
+
+==== ConfigMap
+* *Name*: `antora-playbook`
+* *Purpose*: Stores the Antora playbook configuration
+* *Key Configuration*:
+** Site title: IBM Fusion Lab Guides
+** Output directory: `/antora/.build/site`
+** UI bundle from Antora default theme
+
+==== Storage Options
+
+**Option 1: PersistentVolumeClaim (openshift-deployment.yaml)**
+* *Name*: `antora-content-pvc`
+* *Size*: 2Gi
+* *Access Mode*: ReadWriteOnce
+* *Purpose*: Persistent storage for cloned Git repository content
+* *Behavior*: Content persists across pod restarts; git pull updates on restart
+* *Requirement*: Requires available StorageClass in cluster
+
+**Option 2: emptyDir (openshift-deployment-no-pvc.yaml)**
+* *Type*: emptyDir volume
+* *Size Limit*: 2Gi
+* *Purpose*: Ephemeral storage for cloned Git repository content
+* *Behavior*: Content is lost on pod restart; fresh git clone on each start
+* *Requirement*: No StorageClass needed; works on any cluster
+
+==== Init Container
+* *Name*: `git-clone`
+* *Image*: `image-registry.openshift-image-registry.svc:5000/techzone-lab/ubi9-git:latest` (custom UBI9 with git)
+* *Purpose*: Clones or updates the Git repository before the main container starts
+* *Security*: Runs with OpenShift-assigned UID (no privilege escalation, all capabilities dropped)
+* *Repository*: https://github.com/IBM/fusion-lab-guides.git
+* *Branch*: Configurable via `GIT_BRANCH` environment variable (defaults to `main`)
+* *Note*: Uses custom-built image from OpenShift internal registry with git pre-installed
+
+==== BuildConfig (ubi9-git)
+* *Name*: `ubi9-git`
+* *Base Image*: `registry.access.redhat.com/ubi9/ubi:latest`
+* *Purpose*: Builds a custom UBI9 image with git-core pre-installed
+* *Output*: ImageStream `ubi9-git:latest` in OpenShift internal registry
+* *Build Strategy*: Docker strategy with inline Dockerfile
+* *Triggers*: Automatic rebuild on ConfigChange or base image update
+* *Note*: Required to install git as root during build phase, avoiding runtime permission issues
+
+==== BuildConfig (antora-viewer)
+* *Name*: `antora-viewer`
+* *Source*: Git repository `https://github.com/juliaaano/antora-viewer.git`
+* *Branch*: main
+* *Context Directory*: container
+* *Purpose*: Builds the Antora Viewer application from source
+* *Output*: ImageStream `antora-viewer:latest` in OpenShift internal registry
+* *Build Strategy*: Docker strategy using Containerfile
+* *Base Image*: `registry.access.redhat.com/ubi10/nodejs-24:10.1`
+* *Triggers*: Automatic rebuild on ConfigChange or base image update
+* *Note*: Builds from official antora-viewer repository, includes all required Node.js dependencies
+
+==== Main Container
+* *Name*: `antora-viewer`
+* *Image*: `image-registry.openshift-image-registry.svc:5000/techzone-lab/antora-viewer:latest` (built from source)
+* *Port*: 8080
+* *Security Context*:
+** Runs with OpenShift-assigned UID (automatically assigned by SCC)
+** No privilege escalation
+** All capabilities dropped
+* *Resource Limits*:
+** CPU: 500m (request) / 1000m (limit)
+** Memory: 512Mi (request) / 1Gi (limit)
+* *Health Checks*:
+** Liveness probe: HTTP GET on port 8080, starts after 30s
+** Readiness probe: HTTP GET on port 8080, starts after 10s
+
+==== Service
+* *Name*: `antora-viewer`
+* *Type*: ClusterIP
+* *Port*: 8080
+* *Purpose*: Internal load balancing and service discovery
+
+==== Route
+* *Name*: `antora-viewer`
+* *TLS*: Edge termination with automatic redirect from HTTP to HTTPS
+* *Purpose*: External access to the application
+
+== Credentials and Access
+
+=== Default Credentials
+
+[IMPORTANT]
+====
+The Antora Viewer application does not require authentication. It serves static content generated from the Git repository.
+====
+
+There are *no default usernames or passwords* for the Antora Viewer application itself. However, you may need credentials for:
+
+* *OpenShift Cluster*: Provided by your cluster administrator
+* *Git Repository*: Public repository, no credentials required for read access
+
+== Deployment Instructions
+
+=== Prerequisites
+
+==== For Local Deployment
+* Docker or Podman installed
+* Git installed
+* Port 8080 available
+
+==== For OpenShift Deployment
+* OpenShift CLI (`oc`) installed and configured
+* Access to an OpenShift cluster (version 4.10+)
+* Cluster admin or namespace admin permissions
+* `kubectl` or `oc` CLI authenticated to your cluster
+
+=== Local Deployment
+
+==== Using Podman (Recommended)
+
+[source,bash]
+----
+# Clone the repository
+git clone https://github.com/IBM/fusion-lab-guides.git
+cd fusion-lab-guides
+
+# Run the Antora Viewer container (default port 9999)
+podman run --rm --name antora-viewer \
+  -v $PWD:/antora:Z \
+  -p 9999:8080 \
+  -e ANTORA_CONFIG=antora-playbook-local.yml \
+  quay.io/juliaaano/antora-viewer:latest
+----
+
+[TIP]
+====
+You can customize the local port by changing the first number in `-p 9999:8080`. For example, use `-p 8080:8080` to use port 8080, or `-p 3000:8080` to use port 3000.
+====
+
+==== Using Docker
+
+[source,bash]
+----
+# Clone the repository
+git clone https://github.com/IBM/fusion-lab-guides.git
+cd fusion-lab-guides
+
+# Run the Antora Viewer container (default port 9999)
+docker run --rm --name antora-viewer \
+  -v $PWD:/antora \
+  -p 9999:8080 \
+  -e ANTORA_CONFIG=antora-playbook-local.yml \
+  quay.io/juliaaano/antora-viewer:latest
+----
+
+[TIP]
+====
+You can customize the local port by changing the first number in `-p 9999:8080`. For example, use `-p 8080:8080` to use port 8080, or `-p 3000:8080` to use port 3000.
+====
+
+==== Accessing the Local Application
+
+Once the container is running, access the application at:
+
+* *URL*: http://localhost:9999 (or your custom port)
+* *Browser*: Open your web browser and navigate to the URL above
+
+To stop the container:
+
+[source,bash]
+----
+# If running in foreground, press Ctrl+C
+# If running in background:
+podman stop antora-viewer
+# or
+docker stop antora-viewer
+----
+
+=== OpenShift Deployment
+
+==== Deployment Options
+
+There are two deployment manifests available depending on your cluster's storage capabilities:
+
+[cols="1,2,2"]
+|===
+|Manifest |Storage Type |Use Case
+
+|`openshift-deployment.yaml`
+|PersistentVolumeClaim (2Gi)
+|Clusters with available StorageClass. Content persists across pod restarts.
+
+|`openshift-deployment-no-pvc.yaml`
+|emptyDir (ephemeral)
+|Clusters without StorageClass. Content is re-cloned on each pod restart.
+|===
+
+[IMPORTANT]
+====
+**With PVC (Persistent Storage):**
+- Content persists across pod restarts
+- Git repository is cloned once, then updated on subsequent restarts
+- Requires a StorageClass to be available in the cluster
+- Recommended for production environments
+
+**Without PVC (Ephemeral Storage):**
+- Content is lost when pod restarts
+- Git repository is cloned fresh on every pod start
+- No StorageClass required
+- Suitable for development, testing, or clusters without persistent storage
+- Uses emptyDir with 2Gi size limit
+====
+
+==== Step 1: Create GitHub Personal Access Token Secret
+
+Before deploying, you need to create a Secret with your IBM GitHub Enterprise Personal Access Token (PAT).
+
+[source,bash]
+----
+# Login to your OpenShift cluster
+oc login --server=https://api.your-cluster.com:6443 --token=your-token
+
+# Verify connection
+oc whoami
+oc version
+
+# Create the namespace if it doesn't exist
+oc create namespace techzone-lab
+
+# Create the GitHub token secret
+# Replace YOUR_GITHUB_PAT with your actual Personal Access Token from github.ibm.com
+oc create secret generic github-token \
+  --from-literal=token=YOUR_GITHUB_PAT \
+  -n techzone-lab
+----
+
+[IMPORTANT]
+====
+**Creating a GitHub Personal Access Token:**
+
+1. Go to https://github.ibm.com/settings/tokens
+2. Click "Generate new token" → "Generate new token (classic)"
+3. Give it a descriptive name (e.g., "OpenShift Antora Deployment")
+4. Select scopes: **repo** (Full control of private repositories)
+5. Click "Generate token"
+6. Copy the token immediately (you won't see it again)
+7. Use this token in the `oc create secret` command above
+
+**Security Note:** The token is stored as a Kubernetes Secret and injected as an environment variable. It's never exposed in logs or pod descriptions.
+====
+
+[TIP]
+====
+Alternatively, you can edit the deployment YAML file and replace `REPLACE_WITH_YOUR_GITHUB_PAT` in the Secret resource with your actual token before applying, but using `oc create secret` is more secure as it keeps the token out of version control.
+====
+
+==== Step 2: Build Custom Images (Automatic)
+
+The deployment manifests include integrated BuildConfigs that automatically build two custom images:
+
+1. **ubi9-git**: Custom UBI9 with git pre-installed (for init container)
+2. **antora-viewer**: Antora Viewer application built from source
+
+[NOTE]
+====
+**Why build custom images?**
+
+**ubi9-git:**
+- OpenShift's restricted security context prevents installing packages at runtime
+- Git must be installed during build phase (as root)
+- Runs as non-root at runtime, complies with OpenShift's restricted-v2 SCC
+
+**antora-viewer:**
+- Public quay.io image is not available/accessible
+- Built from official GitHub repository: https://github.com/juliaaano/antora-viewer.git
+- Includes all Node.js dependencies and Antora tooling
+- Based on Red Hat UBI10 with Node.js 24
+
+Both images are stored in the OpenShift internal registry:
+- `image-registry.openshift-image-registry.svc:5000/techzone-lab/ubi9-git:latest`
+- `image-registry.openshift-image-registry.svc:5000/techzone-lab/antora-viewer:latest`
+====
+
+[TIP]
+====
+When you apply the deployment manifest, OpenShift will:
+1. Create both BuildConfigs and ImageStreams
+2. Automatically trigger both image builds in parallel
+3. Wait for both builds to complete before starting the deployment (via ImageChange triggers)
+4. Automatically restart the deployment when either image is rebuilt
+
+**Build times:**
+- ubi9-git: ~2-3 minutes (installs git package)
+- antora-viewer: ~5-7 minutes (npm install, larger image)
+
+Monitor the builds:
+```bash
+# Watch ubi9-git build
+oc logs -f bc/ubi9-git -n techzone-lab
+
+# Watch antora-viewer build
+oc logs -f bc/antora-viewer -n techzone-lab
+
+# Watch all builds
+oc get builds -n techzone-lab -w
+
+# Watch the deployment (starts after both builds complete)
+oc get deployment antora-viewer -n techzone-lab -w
+```
+
+The ImageChange trigger annotations ensure the deployment only starts after both custom images are successfully built.
+====
+
+==== Step 3: Deploy the Application
+
+**Option A: With PersistentVolumeClaim (Recommended)**
+
+[source,bash]
+----
+# Check if StorageClass is available
+oc get storageclass
+
+# Apply the all-in-one deployment manifest with PVC
+# This will create: Namespace, BuildConfig, ImageStream, ConfigMap, PVC, Deployment, Service, Route
+oc apply -f openshift-deployment.yaml
+
+# Monitor the image build (first time only)
+oc logs -f bc/ubi9-git -n techzone-lab
+
+# Verify deployment
+oc get all -n techzone-lab
+----
+
+**Option B: Without PersistentVolumeClaim (No Storage Class)**
+
+[source,bash]
+----
+# Apply the all-in-one deployment manifest without PVC
+# This will create: Namespace, BuildConfig, ImageStream, ConfigMap, Deployment, Service, Route
+oc apply -f openshift-deployment-no-pvc.yaml
+
+# Monitor the image build (first time only)
+oc logs -f bc/ubi9-git -n techzone-lab
+----
+
+
+
+==== Step 4: (Optional) Customize Git Branch
+
+By default, both deployments use the `main` branch. To deploy from a different branch:
+
+[source,bash]
+----
+# Edit the deployment to change the GIT_BRANCH environment variable
+oc edit deployment/antora-viewer -n techzone-lab
+
+# Or use kubectl patch
+oc patch deployment/antora-viewer -n techzone-lab --type='json' \
+  -p='[{"op": "replace", "path": "/spec/template/spec/initContainers/0/env/0/value", "value": "develop"}]'
+
+# Or modify the YAML file before applying
+# Change the GIT_BRANCH value in the initContainers section:
+#   env:
+#   - name: GIT_BRANCH
+#     value: "your-branch-name"
+----
+
+[TIP]
+====
+After changing the branch, restart the deployment to pull the new branch:
+```bash
+oc rollout restart deployment/antora-viewer -n techzone-lab
+```
+====
+
+[source,bash]
+----
+# Verify deployment
+oc get all -n techzone-lab
+----
+
+==== Step 5: Monitor Deployment Progress
+
+[source,bash]
+----
+# Watch the deployment status
+oc get pods -n techzone-lab -w
+
+# Check init container logs (git clone)
+oc logs -n techzone-lab deployment/antora-viewer -c git-clone
+
+# Check main container logs
+oc logs -n techzone-lab deployment/antora-viewer -c antora-viewer -f
+----
+
+==== Step 6: Get the Application URL
+
+[source,bash]
+----
+# Get the route URL
+oc get route antora-viewer -n techzone-lab -o jsonpath='{.spec.host}'
+
+# Or get full route details
+oc describe route antora-viewer -n techzone-lab
+----
+
+==== Accessing the OpenShift Application
+
+Once deployed, access the application at:
+
+* *URL*: https://antora-viewer-techzone-lab.apps.your-cluster.com
+* *Protocol*: HTTPS (automatically redirects from HTTP)
+* *Browser*: Open your web browser and navigate to the route URL
+
+[TIP]
+====
+The exact URL will depend on your OpenShift cluster's domain. Use the command above to get the actual URL.
+====
+
+=== Updating Content
+
+==== Local Deployment
+
+For local deployments, simply update your local Git repository:
+
+[source,bash]
+----
+# Pull latest changes
+git pull origin main
+
+# Restart the container to regenerate content
+podman restart antora-viewer
+----
+
+==== OpenShift Deployment
+
+The init container automatically pulls the latest content on pod restart:
+
+[source,bash]
+----
+# Delete the pod to trigger a restart with fresh content
+oc delete pod -n techzone-lab -l app=antora-viewer
+
+# Or perform a rolling restart
+oc rollout restart deployment/antora-viewer -n techzone-lab
+
+# Monitor the restart
+oc rollout status deployment/antora-viewer -n techzone-lab
+----
+
+== Troubleshooting
+
+=== Common Issues
+
+==== Local Deployment Issues
+
+[cols="1,2,2"]
+|===
+|Issue |Cause |Solution
+
+|Port 8080 already in use
+|Another application is using port 8080
+|Stop the conflicting application or use a different port: `-p 8081:8080`
+
+|Permission denied on volume mount
+|SELinux context issue (Podman)
+|Add `:Z` flag to volume mount: `-v $PWD:/antora:Z`
+
+|Container exits immediately
+|Configuration file not found
+|Verify `antora-playbook-local.yml` exists in the mounted directory
+|===
+
+==== OpenShift Deployment Issues
+
+[cols="1,2,2"]
+|===
+|Issue |Cause |Solution
+
+|Init container fails
+|Git clone error or network issue
+|Check init container logs: `oc logs -n techzone-lab deployment/antora-viewer -c git-clone`
+
+|Pod in CrashLoopBackOff
+|Application startup failure
+|Check main container logs: `oc logs -n techzone-lab deployment/antora-viewer -c antora-viewer`
+
+|Route not accessible
+|Route not created or DNS issue
+|Verify route exists: `oc get route -n techzone-lab` and check DNS resolution
+
+|PVC pending
+|No available storage class
+|Check PVC status: `oc get pvc -n techzone-lab` and verify storage class availability
+|===
+
+=== Debugging Commands
+
+==== Local Deployment
+
+[source,bash]
+----
+# Check container status
+podman ps -a | grep antora-viewer
+
+# View container logs
+podman logs antora-viewer
+
+# Execute shell in running container
+podman exec -it antora-viewer /bin/bash
+
+# Inspect container configuration
+podman inspect antora-viewer
+----
+
+==== OpenShift Deployment
+
+[source,bash]
+----
+# Get detailed pod information
+oc describe pod -n techzone-lab -l app=antora-viewer
+
+# View all events in namespace
+oc get events -n techzone-lab --sort-by='.lastTimestamp'
+
+# Check resource usage
+oc adm top pod -n techzone-lab
+
+# Execute shell in running pod
+oc exec -it -n techzone-lab deployment/antora-viewer -- /bin/bash
+
+# Port forward for direct access (bypass route)
+oc port-forward -n techzone-lab deployment/antora-viewer 8080:8080
+----
+
+=== Health Check Verification
+
+[source,bash]
+----
+# Local deployment
+curl -I http://localhost:8080
+
+# OpenShift deployment (from within cluster)
+oc exec -n techzone-lab deployment/antora-viewer -- curl -I http://localhost:8080
+
+# OpenShift deployment (external)
+ROUTE_URL=$(oc get route antora-viewer -n techzone-lab -o jsonpath='{.spec.host}')
+curl -I https://$ROUTE_URL
+----
+
+== Maintenance
+
+=== Scaling the Application
+
+[source,bash]
+----
+# Scale up to 3 replicas
+oc scale deployment/antora-viewer -n techzone-lab --replicas=3
+
+# Scale down to 1 replica
+oc scale deployment/antora-viewer -n techzone-lab --replicas=1
+
+# Verify scaling
+oc get pods -n techzone-lab -l app=antora-viewer
+----
+
+=== Updating the Deployment
+
+[source,bash]
+----
+# Edit the deployment configuration
+oc edit deployment/antora-viewer -n techzone-lab
+
+# Or update the YAML file and reapply
+oc apply -f openshift-deployment.yaml
+
+# Verify the update
+oc rollout status deployment/antora-viewer -n techzone-lab
+----
+
+=== Backup and Restore
+
+==== Backup PVC Content
+
+[source,bash]
+----
+# Create a backup pod
+oc run backup-pod -n techzone-lab --image=registry.redhat.io/ubi9/ubi-minimal:latest \
+  --command -- sleep infinity
+
+# Mount the PVC to the backup pod
+oc set volume pod/backup-pod -n techzone-lab --add \
+  --name=backup-volume --type=persistentVolumeClaim \
+  --claim-name=antora-content-pvc --mount-path=/backup
+
+# Create a tar archive
+oc exec -n techzone-lab backup-pod -- tar czf /tmp/backup.tar.gz -C /backup .
+
+# Copy the backup locally
+oc cp techzone-lab/backup-pod:/tmp/backup.tar.gz ./antora-backup.tar.gz
+
+# Clean up
+oc delete pod backup-pod -n techzone-lab
+----
+
+=== Uninstalling
+
+==== Remove from OpenShift
+
+[source,bash]
+----
+# Delete all resources
+oc delete -f openshift-deployment.yaml
+
+# Or delete the namespace (removes everything)
+oc delete namespace techzone-lab
+
+# Verify deletion
+oc get all -n techzone-lab
+----
+
+==== Stop Local Container
+
+[source,bash]
+----
+# Stop and remove container
+podman stop antora-viewer
+podman rm antora-viewer
+
+# Or with Docker
+docker stop antora-viewer
+docker rm antora-viewer
+----
+
+== Security Considerations
+
+=== Container Security
+
+* All containers run as non-root users (UID 1001)
+* Privilege escalation is disabled
+* All Linux capabilities are dropped
+* Read-only root filesystem where possible
+* Security context constraints enforced
+
+=== Network Security
+
+* TLS 1.2+ encryption for external access (OpenShift Route)
+* Automatic HTTP to HTTPS redirect
+* Internal communication over ClusterIP service
+* No external database or authentication required
+
+=== Image Security
+
+* Base images from Red Hat registry (`registry.redhat.io`)
+* Public Antora Viewer image from trusted Quay.io repository
+* Regular security scanning recommended
+* Image pull policy: Always use latest stable version
+
+== Performance Tuning
+
+=== Resource Optimization
+
+Adjust resource limits based on your workload:
+
+[source,yaml]
+----
+resources:
+  requests:
+    memory: "256Mi"  # Minimum for small sites
+    cpu: "250m"
+  limits:
+    memory: "2Gi"    # For large documentation sites
+    cpu: "2000m"
+----
+
+=== Caching Strategy
+
+The Antora Viewer generates static content on startup. For better performance:
+
+* Use a CDN for production deployments
+* Enable browser caching headers
+* Consider using a reverse proxy with caching
+
+== Additional Resources
+
+* Antora Documentation: https://docs.antora.org
+* Antora Viewer GitHub: https://github.com/juliaaano/antora-viewer
+* OpenShift Documentation: https://docs.openshift.com
+* IBM Fusion Lab Guides Repository: https://github.com/IBM/fusion-lab-guides
+
+== Support
+
+For issues or questions:
+
+* Create an issue in the GitHub repository
+* Contact the IBM Fusion team
+* Refer to the OpenShift cluster administrator for infrastructure issues
+
+---
+
+_Last Updated: {docdate}_

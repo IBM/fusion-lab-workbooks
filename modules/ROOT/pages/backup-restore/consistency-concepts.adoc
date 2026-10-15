@@ -1,0 +1,50 @@
+= Backup Consistency Concepts
+:navtitle: Consistency Concepts
+
+== Introduction
+
+When IBM Fusion backs up an application that has multiple persistent volumes, the method used to coordinate those snapshots determines how reliably the application can be restored. Understanding the three levels of backup consistency helps you choose the right protection strategy for each workload.
+
+== No Consistency
+
+With no consistency, snapshots of individual persistent volumes are taken sequentially — one after another — rather than at the same point in time. If an application is actively writing data during this window, some volumes will reflect state from before a write while others reflect state from after it. The resulting backup is internally inconsistent and may not restore to a working application state.
+
+== Crash Consistency
+
+IBM Fusion's default backup behavior is **crash consistent**. All persistent volume snapshots for an application are triggered simultaneously, so they all capture data at exactly the same instant. This is equivalent to what would happen if power were suddenly cut to the cluster — all writes stopped at the same moment, so all volumes are consistent with each other.
+
+Crash consistency is sufficient for many stateless or lightly stateful applications. However, applications that maintain in-memory buffers — such as databases — may have uncommitted transactions or partially written data in those buffers at the moment of snapshot. The snapshot captures the on-disk state only, not what is in memory.
+
+== Application Consistency
+
+**Application-consistent** backups go a step further. Before the snapshot is taken, the application is instructed to:
+
+1. Finish any in-flight transactions
+2. Flush all in-memory buffers to disk
+3. Enter a quiesced (paused write) state
+
+The snapshot is then taken while the application is quiesced, capturing a fully coherent on-disk state. Afterward, the application is instructed to resume normal operation.
+
+This is the same approach used when quiescing a database for a hot backup — for example, calling `db.fsyncLock()` on MongoDB or `pg_start_backup()` on PostgreSQL.
+
+Application-consistent backups are critical for:
+
+* **Databases** — MongoDB, PostgreSQL, MySQL, Db2, etc.
+* **Message queues and streaming platforms** — Kafka, RabbitMQ
+* **Any application where uncommitted in-memory state must not be lost**
+
+== Fusion Recipes
+
+IBM Fusion implements application-consistent backups through **Recipes** — Kubernetes Custom Resources (`kind: Recipe`) that define a custom backup and restore workflow for a specific application type.
+
+A Recipe has three specification elements:
+
+**Groups**:: Define sets of resources or PVCs that are processed together. A group can include or exclude specific resource types (e.g., exclude events, pods, replicasets).
+
+**Hooks**:: Execute commands inside application pods before and after snapshots — for example, putting MongoDB into hot backup mode, or waiting until all expected replicas are Ready before restoring.
+
+**Workflows**:: Define the ordered sequence of groups and hooks for both the backup and restore operations.
+
+IBM maintains a public library of recipes for common applications and databases in the https://github.com/IBM/storage-fusion/tree/master/backup-restore/recipes[IBM Storage Fusion GitHub repository^]. The MongoDB recipe used in the next lab is maintained there and referenced directly.
+
+include::partial$nav-backup-restore-consistency-concepts.adoc[]

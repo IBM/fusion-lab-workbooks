@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:backup-restore/locations-policies.adoc[← Locations & Policies]
+| xref:backup-restore/consistency-concepts.adoc[Consistency Concepts →]
+|===

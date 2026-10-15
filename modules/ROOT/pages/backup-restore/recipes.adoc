@@ -1,0 +1,177 @@
+= Application-Consistent Backups with Recipes
+:navtitle: Recipes & Service Protection
+
+== Introduction
+
+In this lab you will deploy the Pacman application backed by a MongoDB database, apply an IBM Fusion Recipe for application-consistent backups, trigger a backup, and verify that the MongoDB `fsyncLock` and `fsyncUnlock` hooks ran during the backup sequence. You will then configure Backup Service Protection to safeguard the Backup & Restore control plane itself.
+
+include::partial$prereqs-techzone.adoc[]
+
+[NOTE]
+====
+Review xref:backup-restore/consistency-concepts.adoc[Backup Consistency Concepts] before proceeding if you are not familiar with crash consistency vs. application consistency.
+====
+
+== Deploy the Pacman Application
+
+=== Create the Project
+
+*From the OpenShift Web Console:*
+
+1. Navigate to menu:Home[Projects]. Click btn:[Create Project].
+2. Enter `pacman` in the **Name** field and click btn:[Create].
+
+*From the CLI:*
+
+[source,shell]
+----
+oc new-project pacman
+----
+
+=== Import the Application YAML
+
+1. Verify the active project is `pacman`.
+2. Click the Quick create icon (`+`) in the masthead and select **Import YAML**.
+3. Paste the following YAML and click btn:[Create]:
++
+[source,yaml]
+----
+include::example$pacman-all.yaml[]
+----
+
+=== Verify and Play
+
+1. Navigate to menu:Networking[Routes] (project: `pacman`) and click the **Location** URL.
++
+[NOTE]
+====
+It may take a few minutes for the Pacman application to become fully online.
+====
+2. Play a round of Pacman. When the Game Over screen appears, enter your name and click btn:[Save].
+3. Click btn:[View Highscore List] to confirm the score was written to the MongoDB database. These scores will be verified after restore.
+
+== Apply the MongoDB Backup Recipe
+
+The MongoDB recipe is maintained in the IBM Storage Fusion public GitHub repository. It is referenced directly rather than stored locally because it is owned and versioned by the upstream project.
+
+1. Navigate to https://github.com/IBM/storage-fusion/blob/master/backup-restore/recipes/MongoDB/mongodb-image-based-backup-restore.yaml[mongodb-image-based-backup-restore.yaml^] in GitHub. Click btn:[Copy raw file] to copy the contents.
+2. Click the Quick create icon (`+`) in the masthead and select **Import YAML**.
+3. Paste the recipe content and click btn:[Create].
+
+The recipe defines:
+
+* **Groups** — all volumes and resources in the `pacman` namespace, excluding events, pods, and replicasets.
+* **Hooks** — +
+  (1) Validate replica count is `Ready` +
+  (2) Put MongoDB into and out of hot backup mode (`fsyncLock` / `fsyncUnlock`).
+* **Workflows** — backup sequence: back up resources → `fsyncLock` → snapshot volumes → `fsyncUnlock`. Restore sequence: create volumes first, then restore resources, wait for replicas Ready.
+
+== Assign the Policy and Attach the Recipe
+
+=== Assign the weekly-backup Policy
+
+1. Navigate to menu:Applications[] in the Fusion Console.
+2. Select the `pacman` checkbox and click btn:[Assign backup policy].
+3. Select `weekly-backup`.
+4. **Set the Back up now toggle to disabled** (no green checkmark).
++
+[IMPORTANT]
+====
+Do not enable **Back up now** here. Pacman does not generate sufficient database activity to safely trigger an initial backup without the recipe attached. An initial backup without the recipe may cause restore failures due to Change Block Tracking (CBT).
+====
+5. Click btn:[Save].
+
+=== Attach the Recipe to the PolicyAssignment
+
+First, find the exact name of the PolicyAssignment created for the pacman application. The naming format is `<app>-<policy>-<cluster-name>`.
+
+*Option 1: From the CLI:*
+
+[source,shell]
+----
+oc get policyassignment -n ibm-spectrum-fusion-ns | grep pacman
+----
+
+Note the full name (for example: `pacman-weekly-backup-apps.xxxx.ocp.techzone.ibm.com`), then patch it to attach the recipe:
+
+[source,shell]
+----
+oc -n ibm-spectrum-fusion-ns patch policyassignment <POLICY-ASSIGNMENT-NAME> \
+  --type merge \
+  -p '{"spec":{"recipe":{"name":"mongodb-image-based-backup-restore-recipe","namespace":"ibm-spectrum-fusion-ns","apiVersion":"spp-data-protection.isf.ibm.com/v1alpha1"}}}'
+----
+
+*Option 2: From the OpenShift Web Console:*
+
+1. Navigate to menu:Home[Search] and switch to the `ibm-spectrum-fusion-ns` project.
+2. In the **Resources** drop-down, search for `PolicyAssignment` and select it.
+3. Click the PolicyAssignment for the pacman application.
+4. Click the **YAML** tab.
+5. Add the following four lines under `spec:`, after `runNow:`, then click btn:[Save]:
++
+[source,yaml]
+----
+  recipe:
+    apiVersion: spp-data-protection.isf.ibm.com/v1alpha1
+    name: mongodb-image-based-backup-restore-recipe
+    namespace: ibm-spectrum-fusion-ns
+----
+
+== Run the Backup and Verify Hooks
+
+=== Trigger the Backup
+
+1. Navigate to menu:Applications[] in the Fusion Console.
+2. Select the `pacman` checkbox and click btn:[Back up now].
+3. Confirm with btn:[Back up].
+
+=== Verify Recipe Hooks in the Job Log
+
+1. Navigate to menu:Backup & restore[Jobs].
+2. Click the `pacman-weekly-backup-<cluster-name>` job.
+3. Expand the **Backup sequence** section — confirm that the MongoDB hook steps (`fsyncLock`, `fsyncUnlock`) appear in the pipeline.
+4. Click **Log view** for additional detail.
+
+=== Verify Hooks in the MongoDB Pod Logs
+
+*From the OpenShift Web Console:*
+
+1. Navigate to menu:Workloads[Pods] (project: `pacman`).
+2. Click the `mongodb-*` pod and select the **Logs** tab. Enable **Wrap lines**.
+3. Scroll through the logs and confirm the `fsyncLock` command was executed during the backup.
+4. Confirm the `fsyncUnlock` command appears shortly after, indicating MongoDB was successfully taken out of hot backup mode.
+
+*From the CLI:*
+
+[source,shell]
+----
+oc logs -n pacman -l app=mongodb --tail=100 | grep -E 'fsyncLock|fsyncUnlock'
+----
+
+Both `fsyncLock` and `fsyncUnlock` entries should appear in the output confirming the recipe hooks ran correctly.
+
+== Configure Backup Service Protection
+
+Backup Service Protection backs up the Backup & Restore control plane itself to an S3 bucket. If the Hub cluster fails, you can use this backup to restore the service on a new cluster.
+
+[NOTE]
+====
+Service protection covers only the Backup & Restore service on the Hub cluster. It does not protect other Fusion services, OCP cluster state, Data Foundation, or disaster recovery configuration.
+====
+
+1. Navigate to menu:Backup & restore[Service protection].
+2. Click the **Configure service backups** tile.
+3. Click the **S3 Compliant** tile and click btn:[Next].
+4. Enter the S3 endpoint and credentials from a new OBC or an existing accessible bucket:
+   * **Location name:** `service-protection-location`
+   * **Endpoint**, **Bucket**, **Access Key**, **Secret Key** from your OBC
+5. Click btn:[Add]. A notification confirms the location is being added.
+6. Click btn:[Define schedule].
+7. Configure the schedule:
+   * **Frequency:** `Weekly`
+   * **Schedule:** `Sunday`
+   * Set a **Start time**, **End time**, and **Timezone**.
+8. Click btn:[Create policy]. Leave **Initiate Service backup now** selected.
+9. Confirm that the Service protection page shows the schedule and that an initial backup has started.
+
+include::partial$nav-backup-restore-recipes.adoc[]

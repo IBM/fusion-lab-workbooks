@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:fusion-foundations/storage.adoc[← Persistent Storage Overview]
+| xref:fusion-foundations/storage-scale.adoc[IBM Storage Scale →]
+|===

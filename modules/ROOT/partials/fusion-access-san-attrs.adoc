@@ -1,0 +1,27 @@
+////
+Fusion Access for SAN - Document Attributes
+Define defaults here; override in page header before including this partial if needed
+Usage: include::partial$fusion-access-san-attrs.adoc[]
+////
+
+ifndef::scale-node-ip[:scale-node-ip: 10.10.10.202]
+ifndef::scale-node-version[:scale-node-version: 6.0.0.1]
+ifndef::scale-nsd-count[:scale-nsd-count: 2]
+ifndef::scale-nsd-size[:scale-nsd-size: 2TB]
+ifndef::scale-fs-name[:scale-fs-name: fs1]
+ifndef::scale-fs-size[:scale-fs-size: 4TB]
+ifndef::scale-network-iface[:scale-network-iface: 10GbE]
+ifndef::iscsi-target-iqn[:iscsi-target-iqn: iqn.2022-06.com.scale.scalenode1:tgt0]
+ifndef::iscsi-target-port[:iscsi-target-port: 3260]
+ifndef::lun-size[:lun-size: 500G]
+ifndef::lun-count[:lun-count: 2]
+ifndef::storage-class-name[:storage-class-name: fusionaccessfs]
+ifndef::worker-node-count[:worker-node-count: 3]
+ifndef::worker-node-prefix[:worker-node-prefix: worker-]
+ifndef::ocp-version[:ocp-version: 4.21]
+ifndef::fusion-version[:fusion-version: 2.14]
+ifndef::ssh-key-path[:ssh-key-path: /tmp/ocp/cluster/id_rsa]
+ifndef::bastion-user[:bastion-user: core]
+ifndef::scale-ssh-user[:scale-ssh-user: root]
+ifndef::scale-fs-mount[:scale-fs-mount: /scale/fs1]
+ifndef::metallb-ip-range[:metallb-ip-range: 192.168.252.200-192.168.252.220]

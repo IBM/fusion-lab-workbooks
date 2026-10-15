@@ -1,0 +1,6 @@
+name: fusion-lab-guides
+title: IBM Fusion Lab Guides
+version: main
+start_page: ROOT:index.adoc
+nav:
+  - modules/ROOT/nav.adoc

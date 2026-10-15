@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:backup-restore/consistency-concepts.adoc[← Consistency Concepts]
+| xref:backup-restore/restore.adoc[Spoke Cluster Restore →]
+|===

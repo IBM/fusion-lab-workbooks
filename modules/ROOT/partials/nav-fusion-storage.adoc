@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:fusion-foundations/install.adoc[← Installing IBM Fusion Operator]
+| xref:fusion-foundations/storage-fdf.adoc[Fusion Data Foundation →]
+|===

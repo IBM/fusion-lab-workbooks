@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:index.adoc[← Welcome & Lab Tracks]
+| xref:getting-started/access.adoc[Accessing the Environment →]
+|===

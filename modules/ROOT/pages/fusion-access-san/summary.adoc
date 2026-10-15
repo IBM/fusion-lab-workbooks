@@ -1,0 +1,73 @@
+= Summary & Licensing
+:navtitle: Summary & Licensing
+
+include::partial$fusion-access-san-attrs.adoc[]
+
+== Summary
+
+This guide has demonstrated how to deploy **IBM Fusion Access for SAN** using iSCSI-attached storage, including:
+
+1. **iSCSI Enablement on OpenShift RHCOS Worker Nodes**
+   * Applied Machine Config to enable `iscsid`, `iscsi`, and `multipathd` services
+   * Obtained IQNs for each worker node
+   * Enabled multipath and verified configuration
+
+2. **Linux-IO (LIO) iSCSI Target Configuration on IBM Storage Scale**
+   * Installed `targetcli` and `iscsi-initiator-utils`
+   * Created {lun-size} backing store files on the Scale filesystem (`{scale-fs-name}`)
+   * Configured iSCSI target IQN: `{iscsi-target-iqn}`
+   * Created target portal group (TPG) on port {iscsi-target-port}
+   * Defined {lun-count} LUNs backed by the fileio backing stores
+   * Created ACLs for each OpenShift worker node IQN (no authentication for lab)
+   * Saved configuration for persistence
+
+3. **IBM Fusion Access for SAN Deployment**
+   * Installed IBM Fusion Operator from IBM Operator Catalog
+   * Deployed Fusion Data Foundation (FDF) on infra nodes for local storage
+   * Configured OpenShift Image Registry storage
+   * Enabled **External Systems → Storage Area Network** service
+   * Selected worker nodes for the storage cluster
+   * Created filesystem `{storage-class-name}` backed by iSCSI LUNs
+   * Verified CNSA pod deployment and filesystem health
+   * Confirmed automatic StorageClass creation (`{storage-class-name}`)
+
+4. **Virtual Machine Deployment**
+   * Installed OpenShift Virtualization Operator
+   * Created HyperConverged deployment
+   * Deployed VM using `{storage-class-name}` StorageClass
+   * Verified PVC creation and fileset on Scale cluster
+   * Generated I/O and monitored performance via CNSA GUI
+
+5. **Resiliency Validation**
+   * Simulated worker node failure (cordon, drain, reboot)
+   * Verified VM continued running with I/O on remaining nodes
+   * Confirmed node recovery and rejoin to Scale cluster
+
+6. **Containerized Application Support (Optional)**
+   * Demonstrated PVC creation for containerized workloads using `{storage-class-name}`
+   * Verified fileset creation on Scale cluster
+
+=== Key Takeaways
+
+* **Storage Agnostic:** IBM Fusion Access for SAN works with any backend storage vendor
+* **Built on Proven Technology:** Leverages IBM Storage Scale's parallel architecture and resiliency
+* **Low-Latency, High-Performance:** Delivers block storage performance over FC or iSCSI
+* **Simplified Management:** OpenShift-native UI for storage cluster, filesystem, and StorageClass management
+* **Enterprise Ready:** GA since IBM Fusion 2.11 / OpenShift 4.19 (August 2025)
+
+== Licensing & Quotes
+
+IBM Fusion Access for SAN licensing information and quote requests:
+
+* Licensing portal: https://access.ibmfusion.eu[IBM Fusion Access Licensing^]
+
+== Appendix A: targetcli Configuration Reference
+
+The following is the targetcli configuration file (`/etc/target/saveconfig.json`) created in this guide. Use as a reference to validate your configuration. The full file is available at `examples/yaml/targetcli-saveconfig.json`.
+
+[source,json]
+----
+include::example$yaml/targetcli-saveconfig.json[]
+----
+
+include::partial$nav-fusion-access-san-summary.adoc[]

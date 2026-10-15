@@ -1,0 +1,69 @@
+= OpenShift Hosted Control Planes (HCP) with IBM Fusion: Overview
+:navtitle: HCP Architecture
+
+== Introduction
+
+**Hosted Control Planes (HCP)** decouple the OpenShift control plane (API server, etcd, controllers) from worker nodes by running the control plane components as lightweight container pods inside a centralized management cluster. This decoupled architecture enables greater flexibility, scalability, and resource efficiency compared to traditional OpenShift clusters where each cluster requires its own dedicated control plane nodes.
+
+The IBM Fusion system can host multiple OpenShift clusters simultaneously. Clusters can be created and deleted on demand, allowing environments to be tailored to specific workload needs.
+
+include::partial$prereqs-techzone.adoc[]
+
+== Key Benefits
+
+* **Cost efficiency** — No dedicated control plane nodes per hosted cluster; fewer bare metal nodes required overall. Compute nodes for hosted clusters can be provisioned as KubeVirt VMs or bare metal servers depending on workload needs.
+* **Cluster on demand** — Hosted clusters can be created when needed and deleted when no longer in use. Resources are automatically reclaimed and made available for new deployments.
+* **Shared storage** — IBM Fusion Data Foundation in Provider mode supplies a shared storage backend for all hosted cluster worker VMs and etcd, eliminating per-cluster storage overhead.
+
+== HCP Architecture
+
+In an HCP deployment:
+
+* **Management Cluster** — Hosts the HyperShift operator, Red Hat multicluster engine for Kubernetes (MCE), MetalLB for load balancing, and the control plane pods for all hosted clusters. IBM Fusion Data Foundation runs in Provider mode to supply storage for local workloads, OpenShift Virtualization, and all hosted clusters.
+* **Hosted Clusters** — Consist solely of worker nodes, running as KubeVirt virtual machines on the management cluster, that connect back to their containerized control plane pods.
+
+== Lab Components
+
+The HCP lab environment includes the following node types on the management cluster:
+
+[cols="1,3",options="header"]
+|===
+| Node Type | Role
+| **3 Control Plane nodes** | Run the OpenShift management cluster control plane.
+| **3 Infra nodes** (`itz-++*++-infra-*`) | Serve a dual role: host the 50 GiB LVM volumes used as fast local storage for hosted cluster etcd pods, and provide the 500 GiB local block devices for Fusion Data Foundation in Provider mode.
+| **3 Worker nodes** (`itz-++*++-worker-*`) | Host user workloads and KubeVirt virtual machines (the worker nodes of hosted clusters).
+|===
+
+[NOTE]
+====
+Infrastructure nodes host only infrastructure components and are not counted toward the total number of subscriptions required to run the environment.
+====
+
+== LVM Storage for Hosted Cluster etcd
+
+Hosted cluster etcd pods have strict latency requirements. To meet these, a fast dedicated storage class is required for etcd on each control-plane node. In this lab, **LVM Storage** is used to create a local storage class backed by the dedicated 50 GiB disks on the infra nodes.
+
+IBM Fusion 2.10 and later includes a `lvm-config` ConfigMap mechanism that automates the installation and configuration of the Red Hat LVM Operator and its associated `LVMCluster` custom resource after the Fusion Operator is installed.
+
+== Fusion Data Foundation in Provider Mode
+
+FDF Provider mode runs a local storage cluster that acts as the central storage provider for multiple consumer clusters. The architecture has two components:
+
+* **Provider** — The FDF storage cluster, built on a minimum of three worker nodes using local bare metal volumes. External clusters connect through a client operator. FDF replicates data across nodes for resilience and fault tolerance.
+* **Client** — A managed CSI deployment on each hosted cluster that connects to the provider to deliver a local storage class for hosted cluster workloads.
+
+From FDF 4.19 onward, Provider and Local deployments share a unified configuration. If you plan to use Provider mode, ensure that Multus is **not** enabled during deployment.
+
+== Key Prerequisites and Dependencies
+
+Deploying Hosted Control Planes requires the following capabilities on the management cluster, all of which are covered step by step in xref:hcp/deploy-cluster.adoc[Provisioning Hosted Control Plane Clusters]:
+
+1. **LVM Storage** — Provides fast local storage for hosted cluster etcd pods on infra nodes.
+2. **Fusion Data Foundation (Provider mode)** — Provides shared block storage for KubeVirt VM disks and workloads.
+3. **OpenShift Virtualization** — Runs hosted cluster worker nodes as KubeVirt virtual machines.
+4. **MetalLB** — Provides Layer 2 load balancing and external IP assignment for hosted cluster API endpoints and OAuth routes.
+5. **multicluster engine for Kubernetes (MCE)** — Provides cluster lifecycle management and the HyperShift operator engine for creating and managing hosted clusters.
+
+include::partial$versions-hcp.adoc[]
+
+include::partial$nav-hcp-overview.adoc[]

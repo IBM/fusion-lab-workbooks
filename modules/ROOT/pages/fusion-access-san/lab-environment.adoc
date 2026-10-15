@@ -1,0 +1,128 @@
+= Lab Environment Overview
+:navtitle: Lab Environment
+
+include::partial$fusion-access-san-attrs.adoc[]
+
+include::partial$prereqs-techzone.adoc[]
+
+== TechZone Reservation Configuration
+
+Reserve the **TechZone Fusion Environment** with the following configuration:
+
+* **OpenShift Version:** {ocp-version}
+* **Worker Nodes:** {worker-node-count} dedicated worker nodes (plus infrastructure nodes)
+* **Worker Node Size:** 16 or 32 Core Worker Nodes
+
+== Cluster Verification
+
+Once the cluster is provisioned, verify the environment:
+
+[source,shell]
+----
+export KUBECONFIG=~/kubeconfig
+oc get no
+----
+
+Expected output showing master, infra, and worker nodes:
+
+[source,shell]
+----
+NAME                  STATUS   ROLES                  AGE   VERSION
+itz-h21pns-infra-1    Ready    worker                 8h    v1.34.9
+itz-h21pns-infra-2    Ready    worker                 8h    v1.34.9
+itz-h21pns-infra-3    Ready    worker                 8h    v1.34.9
+itz-h21pns-master-1   Ready    control-plane,master   8h    v1.34.9
+itz-h21pns-master-2   Ready    control-plane,master   8h    v1.34.9
+itz-h21pns-master-3   Ready    control-plane,master   8h    v1.34.9
+itz-h21pns-worker-1   Ready    worker                 8h    v1.34.9
+itz-h21pns-worker-2   Ready    worker                 8h    v1.34.9
+itz-h21pns-worker-3   Ready    worker                 8h    v1.34.9
+itz-h21pns-worker-4   Ready    worker                 8h    v1.34.9
+----
+
+Verify cluster version:
+
+[source,shell]
+----
+oc get clusterversion
+----
+
+== IBM Storage Scale Node
+
+The lab environment includes a single-node IBM Storage Scale cluster:
+
+* **Version:** {scale-node-version}
+* **NSDs:** {scale-nsd-count} NSDs configured, each {scale-nsd-size} in size
+* **Filesystem:** `{scale-fs-name}` created using both NSDs ({scale-fs-size} total capacity)
+* **IP Address:** `{scale-node-ip}`
+* **Network:** Single {scale-network-iface} interface
+
+== Cluster Preparation
+
+### Required Machine Configurations
+
+Apply the following Machine Configurations (MCO) to prepare the OpenShift cluster:
+
+**1. iSCSI Multipath MCO**
+
+The MachineConfig to enable `iscsid`, `iscsi`, and `multipathd` services is available at `examples/yaml/iscsi-mco.yaml`:
+
+[source,yaml]
+----
+include::example$yaml/iscsi-mco.yaml[]
+----
+
+Apply and monitor:
+
+[source,shell]
+----
+oc apply -f iscsi-mco.yaml
+oc get mcp
+----
+
+Wait until the worker MCP shows `UPDATED True` and `UPDATING False`.
+
+**2. OpenShift Kernel Development MCO**
+
+From the bastion or CLI:
+
+[source,shell]
+----
+oc apply -f https://raw.githubusercontent.com/IBM/ibm-spectrum-scale-container-native/v6.0.0.x/generated/scale/mco/mco.yaml
+oc get mcp
+----
+
+Wait for completion.
+
+**3. Install the "kernel module management" operator**
+
+Install via OperatorHub or CLI as needed for the Scale module build.
+
+== Scale Node Access
+
+Login to the Scale node:
+
+[source,shell]
+----
+ssh -i {ssh-key-path} {scale-ssh-user}@{scale-node-ip}
+sudo -i
+----
+
+Verify the filesystem:
+
+[source,shell]
+----
+df -h {scale-fs-mount}
+----
+
+Expected output (using defaults; adjust for your environment):
+
+[source,shell]
+----
+Filesystem      Size  Used Avail Use% Mounted on
+{scale-fs-name}            {scale-fs-size}  5.2G  995G   1% {scale-fs-mount}
+----
+
+This filesystem will be used as the backing store for the Linux-IO iSCSI target LUNs.
+
+include::partial$nav-fusion-access-san-lab-environment.adoc[]

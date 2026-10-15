@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:ocp-virt/migrate-vm.adoc[← VM Migration (MTV)]
+| xref:ocp-virt/backup-restore-vm.adoc[VM Backup & Restore →]
+|===

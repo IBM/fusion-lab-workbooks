@@ -1,0 +1,370 @@
+= Provisioning Hosted Control Plane Clusters on KubeVirt
+:navtitle: Deploy Hosted Clusters
+
+== Introduction
+
+In this lab you will prepare the management cluster and deploy a tenant OpenShift cluster using Hosted Control Planes (HCP). Worker nodes for the hosted cluster run as KubeVirt virtual machines backed by IBM Fusion Data Foundation storage.
+
+include::partial$prereqs-techzone.adoc[]
+
+== Prerequisites
+
+The following must be completed before starting this lab. Each item is covered in its own guide — follow the links if you have not yet completed them.
+
+* xref:fusion-foundations/install.adoc[IBM Fusion Operator installed and license accepted]
+* xref:ocp-virt/install.adoc[OpenShift Virtualization Operator installed and HyperConverged initialized]
+
+[NOTE]
+====
+OpenShift Virtualization is required because hosted cluster worker nodes run as KubeVirt virtual machines on the management cluster.
+====
+
+== Lab Preparation
+
+The following steps are unique to the HCP lab and are performed here for the first time.
+
+=== Configure LVM Storage
+
+LVM Storage provides fast local storage for hosted cluster etcd pods. Each infra node (`itz-++*++-infra-1`, `itz-++*++-infra-2`, `itz-++*++-infra-3`) has multiple 50 GiB disks available for this purpose. The 500 GiB disk on each node is reserved for Fusion Data Foundation.
+
+IBM Fusion automates LVM Operator installation and configuration using an `lvm-config` ConfigMap. You need to provide the infra node names and the stable PCI device path of one of the 50 GiB disks.
+
+[IMPORTANT]
+====
+Use the stable PCI device path (under `/dev/disk/by-path/`) rather than a kernel device name like `/dev/vdb`. PCI paths are persistent across reboots; kernel device names are not guaranteed to be stable.
+====
+
+==== Step 1: Label the Infra Nodes
+
+*From the OpenShift Web Console:*
+
+1. Navigate to menu:Compute[Nodes] and search for `infra`.
+2. Click on `itz-++*++-infra-1` to open the Node details page.
+3. Select the **Details** tab and click the pencil icon next to **Labels**.
+4. Enter `node-role.kubernetes.io/infra` and click btn:[Save].
+5. Repeat steps 2–4 for `itz-++*++-infra-2` and `itz-++*++-infra-3`.
+
+*From the CLI:*
+
+[source,shell]
+----
+for node in $(oc get nodes -o name | grep infra); do
+  oc label $node node-role.kubernetes.io/infra=
+done
+
+# Verify the labels were applied
+oc get nodes -l node-role.kubernetes.io/infra
+----
+
+All three infra nodes should appear in the output before proceeding.
+
+==== Step 2: Discover the Stable Disk Path
+
+1. In the OpenShift Web Console, navigate to menu:Compute[Nodes] and click on `itz-++*++-infra-1`.
+2. Select the **Terminal** tab and enter `chroot /host` to access the node filesystem.
+3. Run `lsblk` to view the disk layout. You should see output similar to the following:
++
+----
+NAME   MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
+vda    252:0    0   300G  0 disk
+|-vda1 252:1    0     1M  0 part
+|-vda2 252:2    0   127M  0 part
+|-vda3 252:3    0   384M  0 part /boot
+`-vda4 252:4    0 299.5G  0 part /sysroot ...
+vdb    252:16   0    50G  0 disk
+vdc    252:32   0    50G  0 disk
+vdd    252:48   0    50G  0 disk
+vde    252:64   0   500G  0 disk
+----
++
+The unpartitioned 50 GiB disks (`vdb`, `vdc`, `vdd`) are the LVM candidates. The 500 GiB disk (`vde`) is for FDF and must not be used here.
+
+4. Get the stable PCI path for one of the 50 GiB disks (for example, `vdb`):
++
+[source,shell]
+----
+ls -l /dev/disk/by-path/pci* | grep vdb
+----
++
+Copy the full symlink target path (for example, `/dev/disk/by-path/pci-0000:08:00.0`).
+5. Repeat steps 1–4 for `itz-++*++-infra-2` and `itz-++*++-infra-3` and note the path for each.
+
+[NOTE]
+====
+In the TechZone OSV environment the PCI path is typically the same across all three infra nodes. If they differ, list each path on its own line in the `drives` field of the ConfigMap.
+====
+
+==== Step 3: Create the `lvm-config` ConfigMap
+
+1. Click the Quick create icon (the `+` icon in the masthead) and select **Import YAML**.
+2. Copy the following ConfigMap, replacing `itz-******` with your environment ID and the PCI path with the value you discovered in Step 2:
++
+[source,yaml]
+----
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: lvm-config
+  namespace: ibm-spectrum-fusion-ns
+data:
+  computeNodes: |
+    - itz-******-infra-1
+    - itz-******-infra-2
+    - itz-******-infra-3
+  drives: |
+    - '/dev/disk/by-path/pci-0000:XX:00.0'
+  nodeType: compute
+----
+3. Click btn:[Create].
+4. Fusion will automatically install and configure the Red Hat LVM Operator. Wait for the LVM Operator to show **Succeeded** under menu:Ecosystem[Installed Operators] before continuing.
+
+*Verify from the CLI:*
+
+[source,shell]
+----
+oc get csv -n openshift-storage | grep lvm
+----
+
+The `PHASE` column should show `Succeeded` before continuing.
+
+=== Configure Fusion Data Foundation in Provider Mode
+
+FDF Provider mode supplies the central storage backend for KubeVirt VM disks and hosted cluster workloads. See xref:fusion-foundations/storage.adoc#_fusion_data_foundation_in_provider_mode[Fusion Data Foundation in Provider Mode] for a conceptual overview.
+
+==== Install the Data Foundation Service
+
+1. In the IBM Fusion Console, navigate to **Services**, locate the **Data Foundation** tile, and click btn:[Install].
+2. Select the **Local** tile and click btn:[Install].
++
+[NOTE]
+====
+Selecting **Local** automatically installs the Local Storage Operator (LSO). No separate LSO installation step is required.
+====
+3. Wait for the service status to show **Healthy**.
+
+==== Configure the Storage Cluster
+
+1. In the IBM Fusion Console, navigate to menu:Storage[Data Foundation] and click btn:[Get Started].
+2. This redirects to the **Create StorageSystem** wizard in the OpenShift Web Console.
+
+*Backing storage page:*
+
+Select **Create a new StorageClass using local storage devices** and click btn:[Next].
+
+*Advanced Settings page:*
+
+1. Leave **Use Ceph RBD as the default StorageClass** checked.
+2. Check **Set default StorageClass for virtualization**.
+3. Click btn:[Next].
+
+[NOTE]
+====
+Both default StorageClass options are configured here in the wizard. No additional manual annotation steps are required after installation.
+====
+
+*Create Local Volume Set page:*
+
+1. Enter `ibm-spectrum-fusion` as the **LocalVolumeSet name**.
+2. Select **Disks on selected nodes** and choose the three infra nodes (`itz-++*++-infra-1`, `itz-++*++-infra-2`, `itz-++*++-infra-3`).
+3. Set **Disk Type** to **SSD/NVMe**.
+4. Expand **Advanced** and set **Minimum Disk Size** to `100` GB to exclude the 50 GiB LVM disks from FDF disk discovery.
+5. Click btn:[Next], then click btn:[Yes] to confirm creation of the LocalVolumeSet.
+
+*Capacity and Nodes page:*
+
+1. Verify the available raw capacity reflects the 500 GiB disks on the infra nodes.
+2. Select **Balanced** as the resource profile and click btn:[Next].
+
+*Security and network page:*
+
+Select **Host** network and click btn:[Next].
+
+*Data Protection page:*
+
+Leave unchecked unless this cluster is being configured for Regional Disaster Recovery, then click btn:[Next].
+
+*Review and create:*
+
+Review the configuration summary and click btn:[Create StorageSystem]. Wait until the Storage Cluster status shows **Ready / Healthy** — this typically takes 10–15 minutes.
+
+*Verify from the CLI:*
+
+[source,shell]
+----
+oc get storagecluster -n openshift-storage
+----
+
+The `PHASE` column should show `Ready` before continuing.
+
+=== Install MetalLB
+
+MetalLB provides Layer 2 load balancing and external IP assignment for hosted cluster API endpoints and OAuth routes.
+
+include::partial$install-metallb.adoc[]
+
+Patch the ingress controller to allow wildcard routes required by HCP:
+
+[source,shell]
+----
+oc patch ingresscontroller -n openshift-ingress-operator default \
+  --type=json \
+  -p '[{"op":"add","path":"/spec/routeAdmission","value":{"wildcardPolicy":"WildcardsAllowed"}}]'
+----
+
+=== Install Red Hat multicluster engine for Kubernetes (MCE)
+
+MCE provides cluster lifecycle management and the HyperShift operator engine for Hosted Control Planes.
+
+1. Navigate to menu:Ecosystem[Software Catalog], search for `multicluster engine for Kubernetes`, and select the operator tile.
+2. Click btn:[Install], keep all defaults, and click btn:[Install].
+3. Wait for the btn:[Create MultiClusterEngine] button to become active, then click it.
+4. Keep all defaults and click btn:[Create].
+5. Wait for the `MultiClusterEngine` resource to show status **Available / Reconcile Complete**.
+6. When the **Web console update is available** popup appears, click **Refresh web console**. After the reload, the **Fleet management** interface is available via menu:Core Platform[Fleet Management].
+
+*Verify from the CLI:*
+
+[source,shell]
+----
+oc get multiclusterengine
+----
+
+The `STATUS` column should show `Available` before continuing.
+
+=== Download CLI Tools
+
+include::partial$install-virtctl.adoc[]
+
+include::partial$install-hcp.adoc[]
+
+=== Generate an SSH Key for Hosted Clusters
+
+On the Bastion host, generate an SSH keypair for accessing hosted cluster worker nodes:
+
+[source,shell]
+----
+ssh-keygen -t ed25519 -f /home/itzuser/.ssh/id_ed25519 -N ""
+cat /home/itzuser/.ssh/id_ed25519.pub
+----
+
+Note the public key output — it will be required when creating the hosted cluster.
+
+=== Save the Cluster Pull Secret
+
+The cluster pull secret authenticates to the Red Hat image registry when creating hosted clusters.
+
+*From the OpenShift Web Console:*
+
+1. Navigate to menu:Workloads[Secrets] and switch to the `openshift-config` project.
++
+[NOTE]
+====
+Enable **Show default projects** in the project selector if `openshift-config` is not visible.
+====
+2. Click on the `pull-secret` secret, scroll to the **Data** section, and click the **Copy to clipboard** icon.
+3. Paste the contents into a file on the Bastion (for example, `/home/itzuser/pull-secret.json`).
+
+*From the CLI:*
+
+[source,shell]
+----
+oc get secret pull-secret -n openshift-config \
+  -o jsonpath='{.data.\.dockerconfigjson}' | base64 -d \
+  > /home/itzuser/pull-secret.json
+----
+
+== Create a Hosted Cluster
+
+=== Add Cloud Provider Credentials
+
+1. Navigate to menu:Core Platform[Fleet Management] → **All Clusters**.
+2. Go to menu:Credentials[Add credential] and select **Red Hat OpenShift Virtualization** as the credential type.
+3. Provide a name and enter the contents of your saved pull secret.
+4. Paste the SSH public key from `/home/itzuser/.ssh/id_rsa.pub`.
+5. Click btn:[Add].
+
+=== Create the Hosted Cluster
+
+// AUTHOR NOTE: The Fusion cluster labels below integrate the hosted cluster with Fusion services.
+// Their exact behaviour is not well-documented publicly. Current understanding:
+//   isf.ibm.com/fusion-base=   — registers the cluster with the Fusion management plane (required)
+//   isf.ibm.com/fusion-fdf=    — enables FDF client-mode storage for the hosted cluster
+//   isf.ibm.com/fusion-backup= — enables Fusion Backup & Restore agent deployment on the hosted cluster
+// Update this comment when official IBM documentation provides a definitive explanation.
+
+1. In Fleet Management, navigate to menu:Infrastructure[Clusters] and click btn:[Create cluster].
+2. Select **Red Hat OpenShift Virtualization** as the infrastructure type, then select the **Hosted** tile.
+3. On the **Cluster details** page, configure the following fields:
++
+[cols="1,2",options="header"]
+|===
+| Field | Value
+| **Infrastructure provider credential** | Select the credential created in the previous step
+| **Cluster name** | `demo-hcp-cluster`
+| **Hosted cluster namespace** | `clusters`
+| **Cluster set** | `default`
+| **Release image** | Select the latest OpenShift 4.21.x image
+| **Etcd storage class** | `lvms-hcp-etcd`
+|===
+4. In the **Additional labels** field, add the following labels (press kbd:[,] after each to apply as a tag):
++
+----
+isf.ibm.com/fusion-base=
+isf.ibm.com/fusion-fdf=
+isf.ibm.com/fusion-backup=
+----
+5. Click btn:[Next].
+6. On the **Node pools** page, configure the node pool:
++
+[cols="1,2",options="header"]
+|===
+| Field | Value
+| **Node pool name** | `demo-hcp-cluster-nodepool`
+| **Node pool replicas** | `3`
+| **Cores** | `8`
+| **Memory (GiB)** | `16`
+|===
+7. Expand the **Root volume** section and configure:
++
+[cols="1,2",options="header"]
+|===
+| Field | Value
+| **Root volume storage class** | `ocs-storagecluster-ceph-rbd-virtualization`
+| **Access mode** | `ReadWriteMany`
+| **Volume mode** | `Block`
+|===
++
+[NOTE]
+====
+The root volume storage class configures the PVC backing each KubeVirt worker node VM disk. `ocs-storagecluster-ceph-rbd-virtualization` is the FDF storage class optimised for VM workloads. `ReadWriteMany` with `Block` volume mode is required for live migration of hosted cluster worker VMs.
+====
+8. Click btn:[Next] through any remaining pages, then click btn:[Create cluster].
+9. Monitor control plane pod creation on the management cluster:
++
+[source,shell]
+----
+oc get pods -n clusters-demo-hcp-cluster -w
+----
+10. Track hosted cluster and node pool readiness:
++
+[source,shell]
+----
+oc get hostedclusters -n clusters
+oc get nodepools -n clusters
+----
+
+== Accessing the Hosted Cluster
+
+Once the hosted cluster reports `AVAILABLE: True`:
+
+1. In Fleet Management, select the `demo-hcp-cluster` cluster and click btn:[Download kubeconfig].
+2. Save the kubeconfig and connect to the hosted cluster:
++
+[source,shell]
+----
+export KUBECONFIG=~/demo-hcp-kubeconfig
+oc get nodes
+oc get clusterversion
+----
+
+include::partial$nav-hcp-deploy-cluster.adoc[]

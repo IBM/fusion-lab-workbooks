@@ -1,0 +1,38 @@
+= IBM Fusion Hands-on Lab Guides
+:navtitle: Welcome
+
+Welcome to the **IBM Fusion Hands-on Lab Guides** documentation library.
+
+These lab workbooks provide guided exercises, architectural overviews, and step-by-step procedures for deploying, managing, and demonstrating IBM Fusion data services on Red Hat OpenShift Container Platform using IBM Technology Zone (TechZone).
+
+== Authors
+
+include::partial$author-josh.adoc[]
+
+include::partial$author-jc.adoc[]
+
+include::partial$author-matt.adoc[]
+
+include::partial$author-craig.adoc[]
+
+include::partial$author-eyal.adoc[]
+
+== Lab Guide Tracks
+
+[cols="1,3",options="header"]
+|===
+| Track | Description
+| **xref:getting-started/tz-quick-start.adoc[TechZone Quick Start]** | Step-by-step guide to requesting an IBMid, reserving cluster environments on IBM Technology Zone, and connecting via Web Console and Bastion SSH.
+| **xref:fusion-foundations/demo-guide.adoc[General Demo Guide]** | Complete end-to-end walk-through of IBM Fusion, including operator deployment, local & remote storage provisioning, and basic backup protection.
+| **Backup & Restore** | Deep dive into application-consistent container backups, S3 object storage locations, backup policies, recipes, and disaster recovery restores (xref:backup-restore/overview.adoc[Overview], xref:backup-restore/locations-policies.adoc[Policies], xref:backup-restore/protect-workloads.adoc[Workloads], xref:backup-restore/restore.adoc[Restore]).
+| **OpenShift Virtualization (OCP-Virt)** | Running, managing, and live migrating virtual machine workloads on OpenShift backed by Fusion Ceph block storage (xref:ocp-virt/overview.adoc[Overview], xref:ocp-virt/deploy-vm.adoc[Deploy & Migrate VMs]).
+| **Hosted Control Planes (HCP)** | Rapid provisioning and management of containerized OpenShift tenant control planes on top of KubeVirt VMs (xref:hcp/overview.adoc[Overview], xref:hcp/deploy-cluster.adoc[Deploy Hosted Clusters]).
+| **Regional Disaster Recovery (RDR)** | Asynchronous cross-cluster replication, non-overlapping subnet preparation, automated failover, and failback orchestrated via RHACM and ODR (xref:rdr/overview.adoc[Overview], xref:rdr/getting-started.adoc[Preparation], xref:rdr/failover-failback.adoc[Failover & Failback]).
+| **Fusion Access for SAN** | High-performance block storage for OpenShift Virtualization via iSCSI-attached local IBM Storage Scale filesystems (xref:fusion-access-san/overview.adoc[Overview]).
+|===
+
+== Contributor Guide
+
+If you are an author creating or updating lab guides review the **xref:author-guide.adoc[Authors' Style & Antora Guide]** for documentation standards, directory conventions, and local build instructions.
+
+include::partial$legal.adoc[]

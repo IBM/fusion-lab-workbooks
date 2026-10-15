@@ -1,0 +1,272 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: techzone-lab
+  labels:
+    name: techzone-lab
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: ubi9-git
+  namespace: techzone-lab
+  labels:
+    app: antora-viewer
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: ubi9-git
+  namespace: techzone-lab
+  labels:
+    app: antora-viewer
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: ubi9-git:latest
+  source:
+    type: Dockerfile
+    dockerfile: |
+      FROM registry.access.redhat.com/ubi9/ubi:latest
+      
+      # Install git-core as root during build
+      RUN dnf install -y git-core && \
+          dnf clean all && \
+          rm -rf /var/cache/dnf
+      
+      # Set a non-root user for runtime (OpenShift will override this with its own UID)
+      USER 1001
+  strategy:
+    type: Docker
+    dockerStrategy:
+      from:
+        kind: DockerImage
+        name: registry.access.redhat.com/ubi9/ubi:latest
+  triggers:
+  - type: ConfigChange
+  - type: ImageChange
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: antora-viewer
+  namespace: techzone-lab
+  labels:
+    app: antora-viewer
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: antora-viewer
+  namespace: techzone-lab
+  labels:
+    app: antora-viewer
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: antora-viewer:latest
+  source:
+    type: Git
+    git:
+      uri: https://github.com/juliaaano/antora-viewer.git
+      ref: main
+    contextDir: container
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Containerfile
+  triggers:
+  - type: ConfigChange
+  - type: ImageChange
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: github-token
+  namespace: techzone-lab
+type: Opaque
+stringData:
+  token: "REPLACE_WITH_YOUR_GITHUB_PAT"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: antora-playbook
+  namespace: techzone-lab
+data:
+  antora-playbook.yml: |
+    site:
+      title: IBM Fusion Lab Guides
+      start_page: fusion-lab-guides::index.adoc
+    asciidoc:
+      attributes:
+        experimental: ''
+    content:
+      sources:
+        - url: .
+          branches: HEAD
+          worktrees: true
+    ui:
+      bundle:
+        url: https://gitlab.com/antora/antora-ui-default/-/jobs/artifacts/HEAD/raw/build/ui-bundle.zip?job=bundle-stable
+        snapshot: true
+    output:
+      dir: /antora/.build/site
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: antora-content-pvc
+  namespace: techzone-lab
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: antora-viewer
+  namespace: techzone-lab
+  labels:
+    app: antora-viewer
+  annotations:
+    image.openshift.io/triggers: '[{"from":{"kind":"ImageStreamTag","name":"ubi9-git:latest","namespace":"techzone-lab"},"fieldPath":"spec.template.spec.initContainers[?(@.name==\"git-clone\")].image"},{"from":{"kind":"ImageStreamTag","name":"antora-viewer:latest","namespace":"techzone-lab"},"fieldPath":"spec.template.spec.containers[?(@.name==\"antora-viewer\")].image"}]'
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: antora-viewer
+  template:
+    metadata:
+      labels:
+        app: antora-viewer
+    spec:
+      initContainers:
+      - name: git-clone
+        image: image-registry.openshift-image-registry.svc:5000/techzone-lab/ubi9-git:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          export HOME=/tmp && \
+          git config --global credential.helper store && \
+          if [ -d /antora/.git ]; then
+            cd /antora && git fetch origin && git checkout ${GIT_BRANCH} && git pull origin ${GIT_BRANCH}
+          else
+            git clone --branch ${GIT_BRANCH} https://${GITHUB_TOKEN}@github.ibm.com/jclopez/fusion-lab-guides.git /antora
+          fi
+        env:
+        - name: GIT_BRANCH
+          value: "main"
+        - name: GIT_TERMINAL_PROMPT
+          value: "0"
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-token
+              key: token
+        volumeMounts:
+        - name: antora-content
+          mountPath: /antora
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+      containers:
+      - name: antora-viewer
+        image: image-registry.openshift-image-registry.svc:5000/techzone-lab/antora-viewer:latest
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+          name: http
+        env:
+        - name: ANTORA_CONFIG
+          value: "antora-playbook.yml"
+        volumeMounts:
+        - name: antora-content
+          mountPath: /antora
+        - name: antora-playbook-volume
+          mountPath: /antora/antora-playbook.yml
+          subPath: antora-playbook.yml
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false
+      volumes:
+      - name: antora-content
+        persistentVolumeClaim:
+          claimName: antora-content-pvc
+      - name: antora-playbook-volume
+        configMap:
+          name: antora-playbook
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: antora-viewer
+  namespace: techzone-lab
+  labels:
+    app: antora-viewer
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: antora-viewer
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: antora-viewer
+  namespace: techzone-lab
+  labels:
+    app: antora-viewer
+spec:
+  to:
+    kind: Service
+    name: antora-viewer
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

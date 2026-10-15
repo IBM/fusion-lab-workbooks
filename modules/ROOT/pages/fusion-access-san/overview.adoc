@@ -1,0 +1,74 @@
+= IBM Fusion Access for SAN: Overview
+:navtitle: Fusion Access for SAN Overview
+
+include::partial$fusion-access-san-attrs.adoc[]
+
+== Introduction
+
+**IBM Fusion Access for SAN** (powered by **IBM Storage Scale Container Native Storage Access (CNSA)**) provides high-performance, low-latency block storage access for Red Hat OpenShift Virtualization workloads over Fibre Channel (FC) or iSCSI protocols.
+
+=== Product Disclaimer
+
+IBM Fusion is being developed and released in an agile manner. In addition to adding new capabilities, the interface is likely to change over time. Therefore, the screenshots used in this document and other lab guides may not always look exactly like what you see in the product. Depending on timing, you can expect to encounter some of the following:
+
+* Changes in the user interface (UI), such as the location of buttons or text in various fields
+* Additional tabs or buttons
+
+These differences should not affect how the lab exercises work. When changes are observed, have patience and explore.
+
+=== Getting Help
+
+If you require assistance in interpreting any of the steps in this guide, please post your questions to the ++#++storage++_++demo++_++feedback https://ibm.enterprise.slack.com/archives/C06KQ49RJBF[Slack channel for IBMers only]. Business Partners can request help at the https://www.ibm.com/partnerplus/support[Partner Plus Support^] website.
+
+For troubleshooting tips, see the https://ibm.seismic.com/Link/Content/DCGT3pQ7hHM828WDQ86R7Tf6gpPV[TechZone Set Up Troubleshooting Guide^] for help with common issues and solutions when using IBM Technology Zone. Additionally, go to the https://techzone.ibm.com/help[IBM Technology Zone Help^] page. If you have an issue with the site, you can https://ibmsf.force.com/ibminternalproducts/s/createrecord/NewCase?language=en_US[open a support case^]. Alternatively, you can send an email to techzone.help@ibm.com.
+
+For help with the Fusion product, see the https://www.ibm.com/docs/en/storage-fusion-software[Fusion documentation^].
+
+=== Prerequisites & Getting Started
+
+You *[.underline]#must#* be familiar with the Linux operating system, as well as know how to use the command line interface to execute basic Linux commands such as *kubectl*, *oc*, *exit*, *ls*, *mkdir*, *ssh*, *sudo*, and *curl*. Ideally, you should also have some experience working with the Red Hat OpenShift Graphical User Interface (GUI) and executing Red Hat OpenShift Container Platform and Kubernetes command line interface (CLI) commands.
+
+When instructions are given to enter text, the text is usually shown in mono space font `this is an example`. This is to help indicate that you need to type or copy/paste all the text as is.
+
+For detailed step-by-step instructions on creating an IBMid and requesting your TechZone environment, see the xref:getting-started/tz-quick-start.adoc[TechZone Quick Start Guide].
+
+== Key Capabilities
+
+* **Easy User Experience:** Wizard-driven user interface to install and configure storage clusters, file systems, and storage classes.
+* **Use Existing Infrastructure:** Leverage existing SAN investments, including Fibre Channel (FC) and iSCSI technologies, as you transition to or expand with OpenShift Virtualization.
+* **Scalability:** Storage cluster designed to scale with OpenShift Container Platform clusters and virtual machine workloads. Supports up to approximately 3000 VMs on 6 bare-metal hosts.
+* **Consolidated and Shared Storage:** Multiple servers access large, shared data storage capacity with automatic data backup and continuous monitoring.
+* **High-Speed Data Transfer:** Dedicated high-speed network for storage overcomes data transfer bottlenecks of traditional LAN.
+* **File-Level Access:** File systems built on top of SAN storage provide file-level access through shared-disk file systems.
+* **Centralized Management:** Centralized management and configuration of SAN components like Logical Unit Numbers (LUNs).
+
+== Architecture
+
+IBM Fusion Access for SAN is based on **IBM Storage Scale Container Native Storage Access (CNSA)** using local filesystems. The architecture uses IBM Storage Scale as a containerized clustered file system that provides concurrent access from multiple nodes.
+
+IBM Storage Scale CNSA deploys as:
+* **Core pods** on selected worker nodes (storage nodes)
+* **CSI driver** with operator, CSI sidecars, and CSI node plugins
+* **Local filesystems** backed by shared LUNs accessible by all worker nodes simultaneously
+
+== Use Cases
+
+* High-performance, low-latency storage for OpenShift Virtualization VMs
+* Migrating VMware workloads to OpenShift Virtualization with comparable storage performance
+* Enterprise storage abstraction independent of underlying storage vendor
+* OpenShift-native user interface for storage management
+
+== References
+
+* IBM Fusion Access for SAN documentation: https://www.ibm.com/docs/en/fusion-software/{fusion-version}.0?topic=fusion-access-san[IBM Fusion Access for SAN^]
+* IBM Storage Scale CNSA overview: https://www.ibm.com/docs/en/scalecontainernative/5.2.3?topic=overview[IBM Storage Scale CNSA^]
+* IBM Storage Scale CSI driver: https://www.ibm.com/docs/en/scalecsi/2.14.x?topic=214-introduction[IBM Storage Scale CSI Driver^]
+* Video overview: https://www.youtube.com/watch?v=ui03JkbXjYQ[IBM Fusion Access for SAN Video^]
+
+== Resources
+
+* IBM Fusion Collection on TechZone: https://techzone.ibm.com/collection/678ad5bf6b6b9f642a304218[IBM Fusion Collection^]
+* IBM Fusion Environments: https://techzone.ibm.com/collection/ibm-spectrum-fusion/environments[Environments^]
+* IBM Fusion Resources: https://techzone.ibm.com/collection/ibm-spectrum-fusion/resources[Resources^]
+
+include::partial$nav-fusion-access-san-overview.adoc[]

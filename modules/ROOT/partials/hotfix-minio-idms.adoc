@@ -1,0 +1,64 @@
+[WARNING]
+====
+*⚠ STOP — Apply This Hotfix Before Proceeding*
+
+*All IBM Storage Fusion Backup & Restore releases are affected.*
+
+IBM has identified a critical issue: the MinIO container image previously hosted on `quay.io/minio` has been *permanently removed* from the public Quay registry.
+Without this fix applied first, the Backup & Restore service installation will fail, the Transaction Manager pod will not start, and all backup and restore jobs will be blocked with an image-pull authorization error on `guardian-minio`.
+
+*Do not proceed to the installation steps below until this hotfix has been applied and the MCP rollout is complete.*
+
+---
+
+*Option A — Apply via OpenShift Web Console:*
+
+1. Navigate to menu:Administration[CustomResourceDefinitions].
+2. In the search field, type `ImageDigestMirrorSet` and open the CRD.
+3. Click the **Instances** tab, then click btn:[Create ImageDigestMirrorSet].
+4. Replace the default YAML editor content with the manifest below, then click btn:[Create].
+
+[source,yaml]
+----
+apiVersion: config.openshift.io/v1
+kind: ImageDigestMirrorSet
+metadata:
+  name: fbr-minio-idms
+spec:
+  imageDigestMirrors:
+  - mirrors:
+    - icr.io/fusion-open/minio
+    source: quay.io/minio
+----
+
+*Option B — Apply via CLI:*
+
+[source,shell]
+----
+cat <<'EOF' | oc create -f -
+apiVersion: config.openshift.io/v1
+kind: ImageDigestMirrorSet
+metadata:
+  name: fbr-minio-idms
+spec:
+  imageDigestMirrors:
+  - mirrors:
+    - icr.io/fusion-open/minio
+    source: quay.io/minio
+EOF
+----
+
+---
+
+*Verify the MCP rollout is complete before continuing:*
+
+[source,shell]
+----
+oc get mcp
+----
+
+The rollout triggers automatically and does *not* reboot any nodes.
+Wait until all `MachineConfigPool` entries report `UPDATED=True` and `DEGRADED=False` before proceeding.
+
+For the full IBM Support advisory, see: link:https://www.ibm.com/support/pages/node/7289585[MinIO Image Removal from Quay Registry — Advisory 7289585^].
+====

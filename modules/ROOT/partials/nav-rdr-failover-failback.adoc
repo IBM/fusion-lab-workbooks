@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:rdr/getting-started.adoc[← Environment Preparation & Subnets]
+|
+|===

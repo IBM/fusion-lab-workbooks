@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:fusion-access-san/vm-deploy.adoc[← Deploy VM]
+| xref:fusion-access-san/summary.adoc[Summary & Licensing →]
+|===

@@ -1,0 +1,81 @@
+= Connecting IBM Storage Scale
+:navtitle: IBM Storage Scale
+
+== Introduction
+
+In this guide you will prepare the OpenShift worker nodes for Storage Scale kernel module compilation and then connect the remote IBM Storage Scale cluster to IBM Fusion.
+
+include::partial$prereqs-techzone.adoc[]
+
+== Prerequisites: Machine Config Operator (MCO)
+
+[IMPORTANT]
+====
+Mounting an external IBM Storage Scale cluster requires kernel headers on the OpenShift worker nodes to compile the Scale kernel module. This is managed via the Machine Config Operator (MCO).
+====
+
+1. From the Bastion host terminal, connect to your OpenShift cluster using `oc login`.
+2. Apply the Storage Scale MCO manifest:
++
+[source,shell]
+----
+oc apply -f https://raw.githubusercontent.com/IBM/ibm-spectrum-scale-container-native/v6.0.1.1.1/generated/scale/mco/mco.yaml
+----
+3. Monitor the machine config pool update and wait until all worker nodes report `UPDATED: True` and `READYMACHINECOUNT` matches `MACHINECOUNT`:
++
+[source,shell]
+----
+oc get mcp worker -w
+----
++
+[NOTE]
+====
+Node reboot and kernel extension updates take approximately 5–10 minutes. Ensure the worker pool is fully updated before proceeding.
+====
+
+== Mounting a Remote IBM Storage Scale File System
+
+1. In the Fusion Console, navigate to menu:Storage[External systems].
+2. Click btn:[Connect external Systems], select **IBM Scale**, and click btn:[Next].
+3. Select the worker nodes that require access to the remote file system.
+4. Enter the connection parameters from your TechZone reservation:
++
+[cols="1,2",options="header"]
+|===
+| Field Name | Value
+| **Host names / Scale GUI IP** | `10.10.10.202` (or cluster Scale IP)
+| **Cluster ID** | Found via `mmlscluster` on Scale node
+| **Username** | `csi-storage-gui-user`
+| **Password** | `csi-storage-gui-password`
+| **File System Name** | `fs1`
+| **Storage Class Name** | `fusionfs1`
+|===
+5. Click btn:[Connect].
+6. Monitor the connection until the Scale dashboard displays **Ready**.
+
+== Verifying the Storage Scale Connection
+
+You can verify the remote cluster and file system status directly on the Scale node via the Bastion host:
+
+[source,shell]
+----
+# SSH from Bastion to the Scale node
+ssh itzuser@10.10.10.202
+sudo -i
+
+# Check Storage Scale cluster status
+mmlscluster
+
+# List available file systems and mount points
+mmlsfs all -T
+
+# Query the Scale REST API
+curl -k -u csi-storage-gui-user:csi-storage-gui-password https://localhost/scalemgmt/v2/cluster
+----
+
+[NOTE]
+====
+If the `pmcollector` pod remains in **Pending** state after the connection is established, see xref:fusion-foundations/troubleshooting-pmcollector.adoc[Troubleshooting: pmcollector Pod Not Running] for steps to free up node resources.
+====
+
+include::partial$nav-fusion-storage-scale.adoc[]

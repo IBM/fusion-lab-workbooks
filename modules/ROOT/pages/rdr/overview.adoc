@@ -1,0 +1,93 @@
+= IBM Fusion Regional Disaster Recovery (RDR): Architecture & Concepts
+:navtitle: RDR Architecture
+
+== Introduction
+
+**Regional Disaster Recovery (RDR)** provides asynchronous data replication and cross-cluster workload failover between two geographically separated OpenShift clusters. It is composed of Red Hat Advanced Cluster Management for Kubernetes (RHACM) and IBM Fusion Data Foundation components to provide application and data mobility across OpenShift Container Platform clusters.
+
+While **Metro Disaster Recovery (MDR)** operates over low-latency (<10ms) synchronous networks using stretch clusters, **Regional DR** is designed for independent clusters across metropolitan or continental distances where network latency precludes synchronous writes. Because replication is asynchronous, there is a potential for a small amount of data loss in an unplanned outage, but protection covers a broad set of failure scenarios.
+
+This solution requires Red Hat Advanced Cluster Management (RHACM) and Fusion Data Foundation Advanced entitlements.
+
+include::partial$prereqs-techzone.adoc[]
+
+== Core Technology Components
+
+=== Red Hat Advanced Cluster Management (RHACM)
+
+RHACM provides the ability to manage multiple clusters and application lifecycles, serving as the control plane in a multi-cluster environment. It is split into two parts:
+
+* **RHACM Hub** — Runs on the multi-cluster control plane and provides centralized orchestration, policy governance, and application lifecycle management across all managed clusters.
+* **Managed Clusters** — Run the RHACM agent components that receive and execute tasks from the Hub.
+
+=== Red Hat OpenShift GitOps
+
+Red Hat OpenShift GitOps integrates declarative, Git-driven configuration and application management powered by Argo CD. In an RDR environment, OpenShift GitOps is a prerequisite for the Multicluster Orchestrator to support multi-cluster coordination and application discovery across managed clusters.
+
+=== Fusion Data Foundation (FDF)
+
+FDF provides the storage and replication layer for RDR. It is backed by Ceph (managed by Rook) and enhanced with the following disaster recovery capabilities:
+
+* Enable RBD block pools for mirroring across FDF instances on different clusters.
+* Mirror specific images within an RBD block pool asynchronously.
+* Provide CSI add-ons to manage per-PVC mirroring, giving fine-grained control over which persistent volumes are replicated.
+
+=== OpenShift DR (ODR) Operators
+
+OpenShift DR orchestrates disaster recovery for stateful applications across peer OpenShift clusters. It provides cloud-native interfaces to manage the lifecycle of application state on Persistent Volumes. ODR is split into three components:
+
+* **FDF Multicluster Orchestrator** — Installed on the Hub cluster alongside RHACM. Orchestrates configuration and peering of FDF clusters for Metro and Regional DR relationships.
+* **FDF DR Hub Operator** — Automatically installed as part of the Multicluster Orchestrator on the Hub cluster. Orchestrates failover and relocation of DR-enabled applications.
+* **FDF DR Cluster Operator** — Automatically installed on each managed cluster in a DR relationship. Manages the lifecycle of all PVCs belonging to a protected application.
+
+=== Submariner
+
+Submariner establishes direct, encrypted cross-cluster pod-to-pod and service-to-service networking between the primary and secondary clusters, required for ODR and RHACM to communicate across cluster boundaries.
+
+== Managed vs. Discovered Applications
+
+RHACM supports two application models for disaster recovery:
+
+* **Managed applications** are deployed and managed through the ACM application model using a multi-cluster application definition (GitOps / Argo CD). ACM tracks and deploys these applications declaratively across clusters. OpenShift API for Data Protection (OADP) is _not_ required for managed applications because the application definition lives in source control and is re-applied during failover.
+
+* **Discovered applications** already exist on managed clusters outside of the ACM application model. ACM discovers these through OpenShift GitOps or Argo CD operators and provides visibility, health monitoring, and DR integration. OADP is deployed alongside ACM to back up and restore Kubernetes objects during failover or relocation.
+
+[NOTE]
+====
+The RDR lab uses the **Discovered applications** model. OADP is installed on both clusters to enable Kubernetes object backup and restore in conjunction with FDF volume replication.
+====
+
+== Disaster Recovery Operations: Failover vs. Relocate
+
+=== Failover (Unplanned Outage)
+
+Failover switches an application and its state from the primary cluster to the secondary cluster when the primary becomes unavailable. The process is administrator-initiated — the DR solution orchestrates application restart on the secondary cluster using the most recent asynchronously replicated storage snapshot. Because replication is asynchronous, a small amount of data loss is possible depending on replication lag at the time of the outage.
+
+=== Relocate (Planned Migration / Failback)
+
+Relocate moves an application back to the original primary cluster after the disaster is resolved and the primary is restored. Because the process is planned, data synchronization completes before the application is restarted on the primary site, ensuring zero data loss.
+
+[cols="1,1,1",options="header"]
+|===
+| | Failover | Relocate
+| **Trigger** | Unplanned primary outage | Planned — primary restored
+| **Direction** | Primary → Secondary | Secondary → Primary
+| **Data loss** | Possible (async replication lag) | None (synchronized before cutover)
+| **Initiation** | Administrator-initiated | Administrator-initiated
+|===
+
+== Lab Architecture
+
+The RDR lab uses two independent OpenShift clusters:
+
+* **`local-cluster` (Primary)** — Hosts the primary workloads, Fusion Data Foundation, and Red Hat Advanced Cluster Management.
+* **`ocp2` (Secondary / DR site)** — Configured as the disaster recovery site with its own FDF instance.
+
+[IMPORTANT]
+====
+In this lab, ACM is deployed on `local-cluster` rather than on a separate hub cluster. This configuration is not supported for production Regional Disaster Recovery and is intended solely for learning purposes. In a production environment, RHACM should be deployed on a dedicated hub cluster that does not participate in data replication.
+====
+
+include::partial$versions-rdr.adoc[]
+
+include::partial$nav-rdr-overview.adoc[]

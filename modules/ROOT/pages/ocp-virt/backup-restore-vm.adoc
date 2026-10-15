@@ -1,0 +1,41 @@
+= Backup & Restore for Virtual Machines
+:navtitle: VM Backup & Restore
+
+== Introduction
+
+IBM Fusion Backup & Restore protects virtual machines in the same way it protects containerized applications — by treating the VM namespace as an application. In this lab you will back up a RHEL 9 VM using a weekly policy and restore it to a new namespace.
+
+include::partial$prereqs-techzone.adoc[]
+
+[NOTE]
+====
+This lab requires the Fusion Backup & Restore service to be installed with a `weekly-backup` policy and `object1` S3 backup location configured. See xref:backup-restore/locations-policies.adoc[Locations & Policies] before proceeding.
+====
+
+== Create and Back Up the VM
+
+1. Switch to the `vmbackup` project using the project selector.
+2. Navigate to menu:Virtualization[Catalog > Template catalog]. Select the **Red Hat Enterprise Linux 9 VM** template.
+3. Enter `rhel9-vmbackup` in the **VirtualMachine name** field and click btn:[Quick create VirtualMachine].
+4. Wait for the VM to reach **Running** status.
+5. Launch the IBM Fusion console from the Application Menu (9-square grid icon in the masthead) → **IBM Storage Fusion**.
+6. Navigate to menu:Backup & restore[Applications].
+7. Select the checkbox next to `vmbackup` and click btn:[Assign backup policy].
+8. Select the `weekly-backup` policy checkbox. Leave **Back up now** enabled (green toggle). Click btn:[Save].
+9. Wait for the backup status to show **Completed** under Backup status.
+10. Navigate to menu:Backup & restore[Jobs] and click the `vmbackup-weekly-backup-<cluster-name>` job to review the backup summary.
+
+== Restore the VM to a New Namespace
+
+1. Navigate to menu:Backup & restore[Backed up applications] and click `vmbackup` to open its details page.
+2. Click btn:[Restore].
+3. Set **Target cluster** to `This cluster`.
+4. Select **Create a new project** and enter `vmrestore` in the **Project name** field. Click btn:[Next].
+5. Select the latest backup time from the list and click btn:[Next].
+6. Review the **Before restore / After restore** summary and click btn:[Restore].
+7. Confirm with btn:[Restore] in the confirmation dialog.
+8. Click btn:[View job details] to monitor progress. Wait for the job to show **Completed**.
+9. Return to the OpenShift Web Console. Navigate to menu:Virtualization[VirtualMachines] and switch to the `vmrestore` project.
+10. Confirm the `rhel9-vmbackup` VM has been restored and is in **Running** status.
+
+include::partial$nav-ocp-virt-backup-restore-vm.adoc[]

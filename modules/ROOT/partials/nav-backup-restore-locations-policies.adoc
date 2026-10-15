@@ -1,0 +1,5 @@
+[cols="<,>",frame=none,grid=none]
+|===
+| xref:backup-restore/overview.adoc[← Architecture & Concepts]
+| xref:backup-restore/protect-workloads.adoc[Protect Workloads →]
+|===

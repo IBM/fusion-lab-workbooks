@@ -1,0 +1,15 @@
+== Software Versions
+
+The following software versions were used to develop and validate the OpenShift Virtualization lab:
+
+[cols="1,1",options="header"]
+|===
+| Component | Version
+| IBM Fusion | 2.14.x
+| Red Hat OpenShift Container Platform | 4.21.33
+| Red Hat OpenShift Virtualization | 4.21.17
+| IBM Fusion | 2.14
+| Migration Toolkit for Virtualization | 2.12.9
+| Kubernetes NMState | 4.21.0-202609301335
+| MetalLB | 4.21.0-202609291522
+|===

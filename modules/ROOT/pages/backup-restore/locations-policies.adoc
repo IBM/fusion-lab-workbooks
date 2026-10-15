@@ -1,0 +1,124 @@
+= Configuring Backup Locations & Policies
+:navtitle: Locations & Policies
+
+== Introduction
+
+Before protecting application workloads, you must configure a **Backup Location** (where data copies are stored) and **Backup Policies** (schedules and retention rules). In this lab you will create one S3 object storage location backed by the local FDF NooBaa/MCG bucket, then create two policies — a daily in-place snapshot and a weekly object storage backup.
+
+include::partial$prereqs-techzone.adoc[]
+
+[NOTE]
+====
+Navigate to menu:Backup & restore[Topology] and confirm the cluster shows as **Connected** before proceeding.
+====
+
+== Create the S3 Backup Location
+
+=== Step 1: Create an Object Bucket Claim
+
+*From the OpenShift Web Console:*
+
+1. Navigate to menu:Storage[Object Storage].
+2. Click the **Object Bucket Claims** tab.
+3. Click btn:[Create ObjectBucketClaim].
+4. Set:
+   * **ObjectBucketClaim name:** `backup-bucket-claim`
+   * **StorageClass:** `openshift-storage.noobaa.io`
+   * **BucketClass:** `noobaa-default-bucket-class` (default)
+5. Click btn:[Create].
+6. Once the status shows **Bound**, scroll down to **Object Bucket Claim Data** and click btn:[Reveal Values].
+7. Note the **Bucket Name**, **Access Key**, and **Secret Key** — you will need them in Step 3.
+
+*Verify the ObjectBucketClaim (OBC) is Bound and retrieve the bucket credentials from the CLI:*
+
+Confirm the OBC is Bound
+
+[source,shell]
+----
+oc get obc backup-bucket-claim
+----
+
+Retrieve the bucket name
+
+[source,shell]
+----
+oc get obc backup-bucket-claim -o jsonpath='{.spec.bucketName}'
+----
+
+Retrieve the access credentials
+
+[source,shell]
+----
+oc get secret backup-bucket-claim -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | base64 -d
+oc get secret backup-bucket-claim -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' | base64 -d
+----
+
+=== Step 2: Retrieve the External S3 Route
+
+The internal endpoint shown on the OBC details page is not accessible outside the cluster. Retrieve the external route instead.
+
+*From the CLI:*
+
+[source,shell]
+----
+oc get route s3 -n openshift-storage -o jsonpath='{.spec.host}'
+----
+
+*From the OpenShift Web Console:*
+
+Navigate to menu:Networking[Routes], change the project to `openshift-storage`, and copy the **Location** URL for the `s3` route.
+
+=== Step 3: Register the Location in IBM Fusion
+
+1. In the IBM Fusion Console, navigate to menu:Backup & restore[Locations].
+2. Click btn:[Add location +].
+3. Enter `object1` in the **Location name** field.
+4. Click the **MCG/NooBaa** tile, then click btn:[Next].
+5. Enter the connection details:
+   * **Endpoint:** `+https://<s3-route-host>+` (from Step 2)
+   * **Bucket Name:** `<bucket-name>` (from Step 1)
+   * **Access Key:** `<access-key>` (from Step 1)
+   * **Secret Key:** `<secret-key>` (from Step 1)
+6. Click btn:[Add]. Wait for the location tile to show **Connected**.
+
+== Create Backup Policies
+
+=== Policy 1: Daily In-Place Snapshot
+
+In-place snapshots use local CSI volume snapshots and do not require an external object storage location.
+
+1. Navigate to menu:Backup & restore[Policies].
+2. Click btn:[Add policy +].
+3. Set:
+   * **Policy name:** `daily-snapshot`
+   * **Frequency:** `Daily`
+   * **Backup location:** Select the **In place snapshot** tile.
+4. Specify a **Time window** and click btn:[Create policy].
+
+=== Policy 2: Weekly Object Storage Backup
+
+1. Click btn:[Add policy +].
+2. Set:
+   * **Policy name:** `weekly-backup`
+   * **Frequency:** `Weekly`
+   * **Schedule:** `Sunday`
+3. Select the **Object Storage** tile, then select the `object1` location.
+4. Specify a **Time window** and click btn:[Create policy].
+
+The Policies summary page shows each policy's schedule, storage location, and which applications are assigned to it.
+
+*Verify policies were created from the CLI:*
+
+[source,shell]
+----
+oc get backuppolicy -n ibm-spectrum-fusion-ns
+----
+
+Both `daily-snapshot` and `weekly-backup` should appear in the output.
+
+[TIP]
+====
+Always use an Object Storage backup location for any backup you may need to restore across clusters. In-place snapshots are local to the cluster and cannot be used for cross-cluster restore.
+====
+
+include::partial$nav-backup-restore-locations-policies.adoc[]

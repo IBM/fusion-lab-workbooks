@@ -1,0 +1,59 @@
+= Persistent Storage: Architecture & Concepts
+:navtitle: Persistent Storage
+
+== Overview
+
+IBM Fusion delivers software-defined persistent storage for stateful container workloads through two primary storage architectures:
+
+* **Fusion Data Foundation (FDF):** Local software-defined storage backed by Ceph, providing RBD block, CephFS shared file, and NooBaa/MCG S3 object storage running on dedicated worker nodes within the OpenShift cluster.
+* **IBM Storage Scale:** Remote enterprise file storage providing high-performance, POSIX-compliant global shared file systems mounted from an external Storage Scale cluster into OpenShift workloads.
+
+== Fusion Data Foundation (FDF)
+
+FDF is built on Red Hat OpenShift Data Foundation (ODF) / Ceph and provides three storage classes out of the box:
+
+* `ocs-storagecluster-ceph-rbd` — Block storage for containers and virtual machines (ReadWriteOnce)
+* `ocs-storagecluster-cephfs` — Shared file storage for multi-pod access (ReadWriteMany)
+* `openshift-storage.noobaa.io` — S3-compatible object storage via the Multi-Cloud Object Gateway (MCG)
+
+FDF requires a minimum of three dedicated infra nodes with raw block devices. The Local Storage Operator (LSO) discovers and provisions these devices before the Ceph cluster is initialized.
+
+=== FDF Configuration Modes
+
+Fusion Data Foundation supports four configuration modes, selected at install time based on your storage infrastructure and use case:
+
+[cols="1,3",options="header"]
+|===
+| Mode | Description
+| **Local** | Deploys FDF using local storage devices on the cluster nodes. Suitable for lab environments, edge deployments, and smaller setups that do not require a full-scale external storage cluster. This is the standard mode for the General Demo Guide and most single-cluster labs.
+| **Dynamic** | Uses an existing storage provider already present on the OpenShift cluster. FDF builds a fault-tolerant storage cluster on top of the existing provider, enabling scalable and dynamically managed storage resources.
+| **External** | Integrates with enterprise-grade storage that resides *outside* the OpenShift cluster — such as IBM Storage Ceph, IBM FlashSystem, IBM Storage Scale, or IBM Fusion Access for SAN. Use this mode when you need to connect a remote Scale cluster alongside local storage.
+| **Provider** | Runs a local FDF storage cluster that acts as the central storage provider for multiple consumer clusters, including Hosted Control Plane (HCP) clusters. Provider mode is used in the HCP lab to supply storage for KubeVirt VM worker nodes and hosted cluster etcd. From FDF 4.19 onward, provider and local deployments share a unified configuration.
+|===
+
+[NOTE]
+====
+For the **General Demo Guide** and **Storage Scale** labs, select **Local** mode. If you also plan to mount a remote IBM Storage Scale cluster, you will connect it afterward via menu:Storage[External systems] — this does not require selecting External mode at install time.
+
+For the **HCP lab**, FDF is installed in **Provider mode** to serve as the central storage backend for hosted cluster worker VMs and etcd.
+====
+
+== IBM Storage Scale
+
+IBM Storage Scale (formerly IBM Spectrum Scale / GPFS) provides an enterprise-grade parallel file system capable of petabyte-scale capacity, sub-millisecond latency, and simultaneous multi-site access. When connected to IBM Fusion, remote Scale file systems are exposed as Kubernetes StorageClasses, allowing OpenShift workloads to claim ReadWriteMany persistent volumes backed by enterprise NAS.
+
+The connection between OpenShift and the remote Scale cluster is managed by the Container Native Storage Access (CNSA) daemon, which Fusion deploys automatically on designated worker nodes when the External Data Foundation service is enabled.
+
+== Choosing a Storage Architecture
+
+[cols="1,1,1",options="header"]
+|===
+| Capability | Fusion Data Foundation | IBM Storage Scale
+| **Storage type** | Block, File, Object | File (POSIX)
+| **Location** | Local (in-cluster nodes) | Remote (external cluster)
+| **Primary use case** | Container & VM workloads | AI/Analytics, shared enterprise data
+| **Access modes** | RWO, RWX, S3 | RWX
+| **Setup complexity** | Medium (node prerequisites) | Low (Fusion automates CNSA)
+|===
+
+include::partial$nav-fusion-storage.adoc[]

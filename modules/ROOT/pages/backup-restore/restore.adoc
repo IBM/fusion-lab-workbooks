@@ -1,0 +1,144 @@
+= Spoke Cluster Restore
+:navtitle: Spoke Cluster Restore
+
+== Introduction
+
+In a Hub-and-Spoke topology, a single Fusion Hub cluster manages backups for applications running on multiple Spoke clusters. In this lab you will connect a second TechZone cluster as a Spoke, back up an application on the Hub using the `object1` location created in xref:backup-restore/locations-policies.adoc[Locations & Policies], and restore it to the Spoke.
+
+include::partial$prereqs-techzone.adoc[]
+
+[IMPORTANT]
+====
+This lab requires two TechZone IBM Fusion environments. The cluster with the full Backup & Restore service installed is the **Hub**. The second cluster is the **Spoke**. Keep both browser sessions open — you will switch between them throughout this lab.
+====
+
+== Install the Backup & Restore Agent on the Spoke
+
+=== Step 1: Generate the Connection Snippet on the Hub
+
+1. In the Fusion Console on the **Hub** cluster, navigate to menu:Backup & restore[Topology].
+2. Click btn:[Connect cluster].
+3. Click the **Use Fusion UI** tile.
+4. Click btn:[Copy snippet] to copy the connection snippet to your clipboard.
+
+=== Step 2: Install the Agent on the Spoke
+
+1. In the Fusion Console on the **Spoke** cluster, navigate to menu:Services[].
+2. Click the **Backup & Restore Agent** tile.
+3. Click btn:[Install].
+4. Paste the connection snippet from Step 1 into the **Hub Connection Snippet** field.
+5. Open the **Storage class** drop-down and select `ocs-storagecluster-ceph-rbd`.
+6. Click btn:[Install].
+7. Wait for the **Installing...** progress bar to complete and the service to report **Healthy**.
+
+=== Step 3: Verify the Connection on the Hub
+
+1. Return to the Fusion Console on the **Hub** cluster.
+2. Navigate to menu:Backup & restore[Topology].
+3. Confirm the Spoke cluster is listed as **Connected** and **Healthy**.
+
+== Verify the Backup Location is Accessible
+
+The `object1` backup location created in xref:backup-restore/locations-policies.adoc[Locations & Policies] uses the FDF NooBaa/MCG S3 route, which is accessible from both clusters over the TechZone network. No additional OBC is required.
+
+Confirm the location is still **Connected**:
+
+1. In the Fusion Console on the **Hub**, navigate to menu:Backup & restore[Locations].
+2. Verify `object1` shows **Connected**.
+
+[NOTE]
+====
+IBM Fusion 2.13 enforces TLS certificate validation for backup locations. If the `object1` location shows a certificate error, you may need to provide the NooBaa CA bundle. Retrieve it with:
+
+[source,shell]
+----
+oc get cm noobaa-ca-bundle -n openshift-storage -o jsonpath='{.data.ca-bundle\.crt}'
+----
+
+Paste the output into the **CA Certificate** field when editing the location in the Fusion Console.
+====
+
+== Create the Hub-Spoke Backup Policy
+
+A dedicated policy scoped to the `object1` location is used for hub-spoke operations. If you already have `weekly-backup` pointing to `object1`, you can reuse it and skip this section.
+
+1. Navigate to menu:Backup & restore[Policies].
+2. Click btn:[Add policy +].
+3. Set:
+   * **Policy name:** `hubspoke-backup`
+   * **Frequency:** `Monthly`, **Day:** `1`
+4. Select the **Object Storage** tile and select `object1`.
+5. Specify a **Time window** and click btn:[Create policy].
+
+== Deploy and Back Up the Application
+
+=== Deploy Filebrowser in the hubspoke Namespace
+
+1. Create the project:
++
+*From the CLI:*
++
+[source,shell]
+----
+oc new-project hubspoke
+----
++
+*Or from the console:* navigate to menu:Home[Projects] and click btn:[Create Project].
+
+2. Click the Quick create icon (`+`) in the masthead → **Import YAML**. Paste the following YAML and click btn:[Create]:
++
+[source,yaml]
+----
+include::example$filebrowser-all.yaml[]
+----
+3. Navigate to menu:Networking[Routes] (project: `hubspoke`) and open the filebrowser URL.
+4. Log in with **Username:** `admin` / **Password:** `admin`.
+5. Create some directories and upload a few test files — these will be verified on the Spoke after restore.
+
+=== Assign the hubspoke-backup Policy
+
+1. In the Fusion Console on the **Hub**, navigate to menu:Applications[].
+2. Select the `hubspoke` checkbox and click btn:[Assign backup policy].
+3. Select `hubspoke-backup`. Leave **Back up now** enabled. Click btn:[Save].
+4. Monitor menu:Backup & restore[Backed up applications] until `hubspoke` shows **Completed** before proceeding.
+
+== Restore to the Spoke Cluster
+
+1. In the Fusion Console on the **Hub**, navigate to menu:Backup & restore[Backed up applications].
+2. Click `hubspoke` to open its details page.
+3. Click btn:[Restore].
+4. In the **Cluster destination** drop-down, select the Spoke cluster — the one that does *not* show the **This cluster** tag.
+5. Select **Use same project** and click btn:[Next].
+6. Select the most recent backup time and click btn:[Next].
+7. Review the summary and click btn:[Restore]. Confirm with btn:[Restore].
+
+=== Monitor the Restore Job
+
+Navigate to menu:Backup & restore[Jobs > Restore tab] on the **Hub**. Click the `restore-hubspoke-<date>` job and monitor until **Completed**.
+
+*From the CLI on the Hub:*
+
+[source,shell]
+----
+oc get pods -n ibm-spectrum-fusion-ns -w
+----
+
+=== Verify on the Spoke Cluster
+
+1. In the OpenShift Web Console on the **Spoke**, navigate to menu:Workloads[Pods] (project: `hubspoke`).
+2. Wait for the pod to show `1/1 Ready`. If the route is not accessible, restart the pod:
++
+[source,shell]
+----
+oc delete pod -l app=filebrowser -n hubspoke
+----
++
+[NOTE]
+====
+This is a known post-restore behaviour — the application starts correctly but the route may not respond until the pod is restarted.
+====
+3. Navigate to menu:Networking[Routes] (project: `hubspoke`) on the **Spoke** and open the filebrowser URL.
+4. Log in with **Username:** `admin` / **Password:** `admin`.
+5. Confirm the directories and files created on the Hub are present — the cross-cluster restore is complete.
+
+include::partial$nav-backup-restore-restore.adoc[]

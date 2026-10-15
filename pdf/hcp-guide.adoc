@@ -1,0 +1,55 @@
+= IBM Fusion: Hosted Control Planes Lab Guide
+:doctype: book
+:author: JC Lopez
+:revnumber: 1.0
+:revdate: 2026
+:pdf-theme: ibm-theme
+:pdf-themesdir: {docdir}/themes
+:pdf-fontsdir: {docdir}/fonts
+:imagesdir: {docdir}/../modules/ROOT/assets/images
+:experimental:
+:pdf-output:
+
+include::{docdir}/cover.adoc[]
+
+// ============================================================
+// Getting Started
+// ============================================================
+include::../modules/ROOT/pages/getting-started/tz-quick-start.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/getting-started/access.adoc[leveloffset=+1]
+
+<<<
+
+// ============================================================
+// Fusion Prerequisites
+// ============================================================
+include::../modules/ROOT/pages/fusion-foundations/install.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/fusion-foundations/storage-fdf.adoc[leveloffset=+1]
+
+<<<
+
+// ============================================================
+// OpenShift Virtualization (required for KubeVirt worker nodes)
+// ============================================================
+include::../modules/ROOT/pages/ocp-virt/overview.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/ocp-virt/install.adoc[leveloffset=+1]
+
+<<<
+
+// ============================================================
+// Hosted Control Planes
+// ============================================================
+include::../modules/ROOT/pages/hcp/overview.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/hcp/deploy-cluster.adoc[leveloffset=+1]

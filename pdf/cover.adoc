@@ -1,0 +1,14 @@
+// PDF cover page partial — included at the top of every assembly file.
+// The assembly file sets :doctitle:, :author:, :revnumber:, and :revdate:
+// before including this partial. Those attributes populate the title page
+// automatically via the ibm-theme.yml title_page configuration.
+//
+// This partial adds a second "inside cover" page with the legal notice
+// immediately after the generated title page so the first content page
+// starts on page 3 (verso of inside cover).
+
+<<<
+
+include::../modules/ROOT/partials/legal.adoc[]
+
+<<<

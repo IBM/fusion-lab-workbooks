@@ -1,0 +1,60 @@
+= IBM Fusion: OpenShift Virtualization Lab Guide
+:doctype: book
+:author: LC Lopez, Matt LeVan
+:revnumber: 1.0
+:revdate: 2026
+:pdf-theme: ibm-theme
+:pdf-themesdir: {docdir}/themes
+:pdf-fontsdir: {docdir}/fonts
+:imagesdir: {docdir}/../modules/ROOT/assets/images
+:experimental:
+:pdf-output:
+
+include::{docdir}/cover.adoc[]
+
+// ============================================================
+// Getting Started
+// ============================================================
+include::../modules/ROOT/pages/getting-started/tz-quick-start.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/getting-started/access.adoc[leveloffset=+1]
+
+<<<
+
+// ============================================================
+// Fusion Prerequisites
+// ============================================================
+include::../modules/ROOT/pages/fusion-foundations/install.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/fusion-foundations/storage-fdf.adoc[leveloffset=+1]
+
+<<<
+
+// ============================================================
+// OpenShift Virtualization
+// ============================================================
+include::../modules/ROOT/pages/ocp-virt/overview.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/ocp-virt/install.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/ocp-virt/deploy-vm.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/ocp-virt/migrate-vm.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/ocp-virt/networking.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/ocp-virt/backup-restore-vm.adoc[leveloffset=+1]

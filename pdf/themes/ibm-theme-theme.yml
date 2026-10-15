@@ -1,0 +1,245 @@
+# IBM Fusion Lab Guides — asciidoctor-pdf theme
+# Colors grounded in Carbon Design System tokens (White theme)
+#   Blue 60  (#0f62fe) — $background-brand, $link-primary, $border-interactive
+#   Gray 100 (#161616) — $text-primary
+#   Gray 70  (#525252) — $text-secondary
+#   Gray 10  (#f4f4f4) — $layer-01, code block background
+#   Gray 20  (#e0e0e0) — $layer-accent-01, table borders
+#   Gray 30  (#c6c6c6) — $border-subtle-01
+#   Red 60   (#da1e28) — $text-error (WARNING admonitions)
+#   Green 60 (#198038) — TIP admonitions
+#   Gold 40  (#f1c21b) — IMPORTANT/CAUTION admonitions
+# Typography: IBM Plex Sans (body/headings), IBM Plex Mono (code)
+
+font:
+  catalog:
+    IBM Plex Sans:
+      normal: IBMPlexSans-Regular.ttf
+      bold: IBMPlexSans-Bold.ttf
+      italic: IBMPlexSans-Italic.ttf
+      bold_italic: IBMPlexSans-BoldItalic.ttf
+    IBM Plex Mono:
+      normal: IBMPlexMono-Regular.ttf
+      bold: IBMPlexMono-Bold.ttf
+      italic: IBMPlexMono-Italic.ttf
+      bold_italic: IBMPlexMono-BoldItalic.ttf
+  fallbacks:
+    - IBM Plex Sans
+
+page:
+  layout: portrait
+  size: LETTER
+  margin: [0.875in, 0.75in, 0.875in, 0.75in]
+
+base:
+  font_family: IBM Plex Sans
+  font_size: 10.5
+  line_height: 1.6
+  font_color: '#161616'  # Carbon $text-primary / Gray 100
+
+# ---------------------------------------------------------------------------
+# Cover page
+# ---------------------------------------------------------------------------
+title_page:
+  background_color: '#0f62fe'  # Carbon Blue 60
+  title:
+    font_family: IBM Plex Sans
+    font_size: 28
+    font_style: bold
+    font_color: '#ffffff'
+    margin_top: 1.5in
+    line_height: 1.2
+  subtitle:
+    font_family: IBM Plex Sans
+    font_size: 16
+    font_style: normal
+    font_color: '#ffffff'
+    margin_top: 0.2in
+  authors:
+    font_family: IBM Plex Sans
+    font_size: 11
+    font_color: '#a6c8ff'  # Carbon Blue 30 — readable on Blue 60 bg
+    margin_top: 0.4in
+  revision:
+    font_family: IBM Plex Sans
+    font_size: 10
+    font_color: '#a6c8ff'
+    margin_top: 0.15in
+
+# ---------------------------------------------------------------------------
+# Running header / footer
+# ---------------------------------------------------------------------------
+header:
+  height: 0.45in
+  border_color: '#e0e0e0'  # Carbon Gray 20
+  border_width: 0.5
+  recto:
+    left:
+      content: '{doctitle}'
+      font_size: 8
+      font_color: '#525252'  # Carbon $text-secondary / Gray 70
+    right:
+      content: 'IBM Technology Zone'
+      font_size: 8
+      font_color: '#525252'
+  verso:
+    left:
+      content: 'IBM Technology Zone'
+      font_size: 8
+      font_color: '#525252'
+    right:
+      content: '{doctitle}'
+      font_size: 8
+      font_color: '#525252'
+
+footer:
+  height: 0.45in
+  border_color: '#e0e0e0'
+  border_width: 0.5
+  recto:
+    left:
+      content: '© Copyright IBM Corporation 2026'
+      font_size: 8
+      font_color: '#525252'
+    right:
+      content: '{page-number}'
+      font_size: 8
+      font_color: '#525252'
+  verso:
+    left:
+      content: '{page-number}'
+      font_size: 8
+      font_color: '#525252'
+    right:
+      content: '© Copyright IBM Corporation 2026'
+      font_size: 8
+      font_color: '#525252'
+
+# ---------------------------------------------------------------------------
+# Headings
+# ---------------------------------------------------------------------------
+heading:
+  font_family: IBM Plex Sans
+  font_style: bold
+  font_color: '#0f62fe'  # Carbon Blue 60
+
+heading_h1:
+  font_size: 22
+  margin_top: 0.4in
+  margin_bottom: 0.1in
+
+heading_h2:
+  font_size: 16
+  margin_top: 0.3in
+  margin_bottom: 0.08in
+  border_bottom_width: 1
+  border_bottom_color: '#e0e0e0'  # Carbon Gray 20
+  padding_bottom: 0.05in
+
+heading_h3:
+  font_size: 13
+  margin_top: 0.2in
+  margin_bottom: 0.06in
+
+heading_h4:
+  font_size: 11
+  font_color: '#161616'
+  margin_top: 0.15in
+  margin_bottom: 0.04in
+
+# ---------------------------------------------------------------------------
+# Links
+# ---------------------------------------------------------------------------
+link:
+  font_color: '#0f62fe'  # Carbon $link-primary / Blue 60
+
+# ---------------------------------------------------------------------------
+# Code blocks
+# ---------------------------------------------------------------------------
+code:
+  font_family: IBM Plex Mono
+  font_size: 9
+  font_color: '#161616'
+  background_color: '#f4f4f4'  # Carbon $layer-01 / Gray 10
+  border_color: '#c6c6c6'      # Carbon $border-subtle-01 / Gray 30
+  border_width: 0.5
+  border_radius: 2
+  padding: [6, 8, 6, 8]
+  line_height: 1.45
+
+codespan:
+  font_family: IBM Plex Mono
+  font_size: 9.5
+  font_color: '#161616'
+  background_color: '#f4f4f4'
+  border_color: '#c6c6c6'
+  border_width: 0.5
+  border_radius: 2
+  padding: [1, 3, 1, 3]
+
+# ---------------------------------------------------------------------------
+# Tables
+# ---------------------------------------------------------------------------
+table:
+  border_color: '#c6c6c6'   # Carbon Gray 30
+  border_width: 0.5
+  cell:
+    padding: [5, 8, 5, 8]
+    font_size: 10
+  head:
+    background_color: '#0f62fe'  # Carbon Blue 60
+    font_color: '#ffffff'
+    font_style: bold
+    border_bottom_color: '#0f62fe'
+  body:
+    stripe_background_color: '#f4f4f4'  # Carbon Gray 10 — alternating rows
+
+# ---------------------------------------------------------------------------
+# Lists
+# ---------------------------------------------------------------------------
+list:
+  indent: 0.375in
+  item_spacing: 4
+
+# ---------------------------------------------------------------------------
+# Admonition blocks
+# ---------------------------------------------------------------------------
+admonition:
+  border_width: 0
+  border_left_width: 3
+  padding: [8, 12, 8, 12]
+  label:
+    font_family: IBM Plex Sans
+    font_style: bold
+    font_size: 9
+  note:
+    background_color: '#edf5ff'
+    border_color: '#0f62fe'   # Carbon Blue 60
+    label:
+      font_color: '#0f62fe'
+  tip:
+    background_color: '#defbe6'
+    border_color: '#198038'   # Carbon Green 60
+    label:
+      font_color: '#198038'
+  important:
+    background_color: '#fdf6dd'
+    border_color: '#f1c21b'   # Carbon Gold 40
+    label:
+      font_color: '#8e6a00'
+  warning:
+    background_color: '#fff1f1'
+    border_color: '#da1e28'   # Carbon Red 60
+    label:
+      font_color: '#da1e28'
+  caution:
+    background_color: '#fff1f1'
+    border_color: '#da1e28'
+    label:
+      font_color: '#da1e28'
+
+# ---------------------------------------------------------------------------
+# Prose
+# ---------------------------------------------------------------------------
+prose:
+  margin_bottom: 0.1in

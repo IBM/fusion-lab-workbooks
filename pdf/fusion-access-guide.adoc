@@ -1,0 +1,52 @@
+= IBM Fusion: Fusion Access for SAN
+:doctype: book
+:author: Josh Blumert
+:revnumber: 1.0
+:revdate: 2026
+:pdf-theme: ibm-theme
+:pdf-themesdir: {docdir}/themes
+:pdf-fontsdir: {docdir}/fonts
+:imagesdir: {docdir}/../modules/ROOT/assets/images
+:experimental:
+:pdf-output:
+
+include::{docdir}/cover.adoc[]
+
+// ============================================================
+// Overview
+// ============================================================
+include::../modules/ROOT/pages/fusion-access-san/overview.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/fusion-access-san/prerequisites.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/fusion-access-san/lab-environment.adoc[leveloffset=+1]
+
+<<<
+
+// ============================================================
+// Setup
+// ============================================================
+include::../modules/ROOT/pages/fusion-access-san/iscsi-setup.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/fusion-access-san/deploy.adoc[leveloffset=+1]
+
+<<<
+
+// ============================================================
+// Lab activity
+// ============================================================
+include::../modules/ROOT/pages/fusion-access-san/vm-deploy.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/fusion-access-san/benchmark.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/fusion-access-san/summary.adoc[leveloffset=+1]

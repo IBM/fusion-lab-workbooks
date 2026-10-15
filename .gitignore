@@ -1,0 +1,23 @@
+# Local HTML and PDF files
+*.html
+*.pdf
+
+#Include the generated PDF lab guides
+!pdf/*.pdf
+
+# Antora build and cache directories
+build/
+.build/
+.cache/
+node_modules/
+package-lock.json
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+www/
+
+#Font files
+pdf/fonts/*.ttf

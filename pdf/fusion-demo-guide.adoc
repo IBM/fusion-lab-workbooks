@@ -1,0 +1,69 @@
+= IBM Fusion: General Demo Guide
+:doctype: book
+:author: Joshua Blumert, Eyal Abraham
+:revnumber: 1.0
+:revdate: 2026
+:pdf-theme: ibm-theme
+:pdf-themesdir: {docdir}/themes
+:pdf-fontsdir: {docdir}/fonts
+:imagesdir: {docdir}/../modules/ROOT/assets/images
+:experimental:
+// Suppress Antora-style nav footer partials in PDF output
+:pdf-output:
+
+include::{docdir}/cover.adoc[]
+
+// ============================================================
+// Getting Started
+// ============================================================
+include::../modules/ROOT/pages/getting-started/tz-quick-start.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/getting-started/access.adoc[leveloffset=+1]
+
+<<<
+
+// ============================================================
+// Fusion Foundations
+// ============================================================
+include::../modules/ROOT/pages/fusion-foundations/demo-guide.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/fusion-foundations/install.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/fusion-foundations/storage.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/fusion-foundations/storage-fdf.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/fusion-foundations/storage-scale.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/fusion-foundations/troubleshooting-pmcollector.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/fusion-foundations/install-br-service.adoc[leveloffset=+1]
+
+<<<
+
+// ============================================================
+// Backup & Restore
+// ============================================================
+include::../modules/ROOT/pages/backup-restore/overview.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/backup-restore/locations-policies.adoc[leveloffset=+1]
+
+<<<
+
+include::../modules/ROOT/pages/backup-restore/protect-workloads.adoc[leveloffset=+1]

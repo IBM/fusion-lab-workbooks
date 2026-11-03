@@ -66,7 +66,7 @@ showmount -e
 [source,shell]
 ----
 sudo curl -L -o /images/rhel8-vmlab.ova \
-  https://ibm.box.com/shared/static/s4ana7xh5a48niz5uf1e66myawbmkqic.ova
+  https://ibm.ent.box.com/s/uqitaowut0s7kfqhpixkolcwqaqjgp6i
 ----
 8. Set read permissions on the OVA so the migration pod can access it:
 +
